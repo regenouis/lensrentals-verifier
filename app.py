@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
@@ -55,13 +54,11 @@ if product_name:
 
     with st.spinner("Checking B&H..."):
         bh_status, bh_url = fetch_bh_status(product_name)
-        st.markdown(f"**B&H Status:** {bh_status}  
-🔗 [View on B&H]({bh_url})")
+        st.markdown(f"**B&H Status:** {bh_status}  \n🔗 [View on B&H]({bh_url})")
 
     with st.spinner("Checking eBay sold listings..."):
         trend, ebay_url, emoji = fetch_ebay_trend(product_name)
-        st.markdown(f"**eBay Trend:** {emoji} {trend}  
-🔗 [View sold listings]({ebay_url})")
+        st.markdown(f"**eBay Trend:** {emoji} {trend}  \n🔗 [View sold listings]({ebay_url})")
 
     if trend != "No trend data":
         suggested_prices = re.findall(r'\$([0-9,.]+)', trend)
