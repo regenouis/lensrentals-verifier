@@ -1,68 +1,21 @@
 import streamlit as st
-import requests
-from bs4 import BeautifulSoup
-import re
 
 st.set_page_config(page_title="Lensrentals Verifier", layout="centered")
 st.title("🔍 Lensrentals Product Verifier")
 
 product_name = st.text_input("Enter product name (exact match)", "")
 
-def fetch_bh_status(product):
-    url = f"https://www.bhphotovideo.com/c/search?Ntt={product.replace(' ', '%20')}&N=0&InitialSearch=yes"
-    try:
-        response = requests.get(url, timeout=10)
-        soup = BeautifulSoup(response.text, "html.parser")
-        result_block = soup.find("div", class_="itemBlock")
-        if not result_block:
-            return "Not found", url
-        stock = result_block.find("div", class_="stockStatus")
-        if stock:
-            text = stock.get_text(strip=True)
-            if "In Stock" in text:
-                return "In Stock", url
-            elif "Backordered" in text:
-                return "Backordered", url
-            elif "Discontinued" in text:
-                return "Discontinued", url
-        return "Found, unknown status", url
-    except Exception:
-        return "Error fetching", url
-
-def fetch_ebay_trend(product):
-    url = f"https://www.ebay.com/sch/i.html?_nkw={product.replace(' ', '+')}&LH_Complete=1&LH_Sold=1"
-    try:
-        response = requests.get(url, timeout=10)
-        soup = BeautifulSoup(response.text, "html.parser")
-        prices = soup.find_all("span", class_="s-item__price")
-        values = []
-        for p in prices[:5]:
-            match = re.search(r'\$([0-9,.]+)', p.text)
-            if match:
-                price = float(match.group(1).replace(',', ''))
-                values.append(price)
-        if len(values) < 2:
-            return "No trend data", url, "⚪"
-        trend = "up" if values[0] > values[-1] else "down" if values[0] < values[-1] else "stable"
-        color = {"up": "🟢", "down": "🔴", "stable": "⚪"}[trend]
-        return f"{trend.title()} (${values[-1]} → ${values[0]})", url, color
-    except Exception:
-        return "Error fetching", url, "⚪"
-
+# Placeholder: Results frame with simulated better scraping logic
 if product_name:
-    st.subheader("Results")
+    st.subheader("Results (Simulated)")
 
-    with st.spinner("Checking B&H..."):
-        bh_status, bh_url = fetch_bh_status(product_name)
-        st.markdown(f"**B&H Status:** {bh_status}  \n🔗 [View on B&H]({bh_url})")
+    # Simulated logic test for Canon RF 24-70mm f/2.8L
+    if "Canon RF 24-70mm f/2.8L" in product_name:
+        st.markdown("**B&H Status:** 🟢 In Stock  \n🔗 [View on B&H](https://www.bhphotovideo.com/c/product/1504386-REG/canon_rf_24_70mm_f_2_8l_is.html)")
+        st.markdown("**eBay Trend:** 🔴 Down ($2,200 → $1,800)  \n🔗 [View sold listings](https://www.ebay.com/sch/i.html?_nkw=Canon+RF+24-70mm+f%2F2.8L+IS+USM&LH_Sold=1&LH_Complete=1)")
+        st.markdown("**MPB Price Range:** $1,959 – $2,189  \n🔗 [View on MPB](https://www.mpb.com/en-us/product/canon-rf-24-70mm-f-2-8-l-is-usm)")
+        st.markdown("**Suggested Lensrentals Used Price:** ~$2,050")
+    else:
+        st.markdown("🔍 Enhanced lookup not yet implemented for this product.")
 
-    with st.spinner("Checking eBay sold listings..."):
-        trend, ebay_url, emoji = fetch_ebay_trend(product_name)
-        st.markdown(f"**eBay Trend:** {emoji} {trend}  \n🔗 [View sold listings]({ebay_url})")
-
-    if trend != "No trend data":
-        suggested_prices = re.findall(r'\$([0-9,.]+)', trend)
-        if suggested_prices:
-            numeric_prices = [float(p) for p in suggested_prices]
-            avg_price = int(sum(numeric_prices) / len(numeric_prices))
-            st.markdown(f"**Suggested Lensrentals Used Price:** ~${avg_price}")
+st.caption("Demo only: Full multi-vendor scraping and fuzzy matching logic coming in next deployment.")
