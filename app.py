@@ -14,20 +14,25 @@ mpn_input = st.text_input("🔢 Manufacturer Part Number (optional)")
 if st.button("Run Verification") and product_name.strip():
     st.subheader("🛒 B&H Retail Search")
 
-    query = '+'.join(product_name.strip().split())
-    bh_search_url = f"https://www.bhphotovideo.com/c/search?Ntt={query}&N=0&InitialSearch=yes"
     headers = {"User-Agent": "Mozilla/5.0"}
-    response = requests.get(bh_search_url, headers=headers)
+
+    # Use MPN if available; otherwise, fall back to product name
+    if mpn_input.strip():
+        bh_search_url = f"https://www.bhphotovideo.com/c/search?q={mpn_input.strip()}"
+    else:
+        query = '+'.join(product_name.strip().split())
+        bh_search_url = f"https://www.bhphotovideo.com/c/search?Ntt={query}&N=0&InitialSearch=yes"
 
     st.markdown(f"🔗 [View B&H search results]({bh_search_url})")
 
-    if response.status_code != 200:
-        st.error("❌ Failed to fetch B&H page.")
-    else:
+    try:
+        response = requests.get(bh_search_url, headers=headers)
+        response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
+
+        # Extract top results
         result_links = []
         seen = set()
-
         for a in soup.find_all("a", href=True):
             href = a["href"]
             if "/c/product/" in href and href not in seen:
@@ -37,12 +42,13 @@ if st.button("Run Verification") and product_name.strip():
             if len(result_links) >= 3:
                 break
 
+        # Visit product pages
         found = False
         for link in result_links:
-            page = requests.get(link, headers=headers)
-            prod_soup = BeautifulSoup(page.text, "html.parser")
-
+            prod_page = requests.get(link, headers=headers)
+            prod_soup = BeautifulSoup(prod_page.text, "html.parser")
             matched = False
+
             for script in prod_soup.find_all("script", type="application/ld+json"):
                 try:
                     data = json.loads(script.string.strip())
@@ -68,5 +74,7 @@ if st.button("Run Verification") and product_name.strip():
 
         if not found:
             st.warning("🔍 B&H product not found or MPN mismatch.")
+    except Exception as e:
+        st.error("❌ Failed to fetch B&H page.")
 
-    st.caption("Now includes metadata MPN matching and fallback logic.")
+    st.caption("Now uses MPN-first B&H search logic with structured metadata matching.")
