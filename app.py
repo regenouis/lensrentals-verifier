@@ -24,10 +24,14 @@ if st.button("Run Verification") and product_name:
     result_links = []
     for a in soup.find_all("a", href=True):
         href = a['href']
-        text = a.get_text(strip=True)
-        if product_name.lower() in text.lower() or (mpn and mpn.lower() in href.lower()):
+        text = a.get_text(strip=True).lower()
+        if "/c/product/" in href and (
+            product_name.lower() in text
+            or (mpn and mpn.lower() in href.lower())
+            or len(text) > 0
+        ):
             full_url = f"https://www.bhphotovideo.com{href}"
-            if full_url not in result_links and "/c/product/" in full_url:
+            if full_url not in result_links:
                 result_links.append(full_url)
         if len(result_links) >= 3:
             break
@@ -40,7 +44,9 @@ if st.button("Run Verification") and product_name:
         # MPN check
         if mpn:
             full_text = prod_soup.get_text().lower()
-            if mpn.lower() not in full_text:
+            meta_mpn = prod_soup.find("meta", attrs={"name": "productPartNumber"})
+            found_mpn = mpn.lower() in full_text or (meta_mpn and mpn.lower() in meta_mpn.get("content", "").lower())
+            if not found_mpn:
                 continue
             mpn_verified = True
         else:
@@ -57,6 +63,8 @@ if st.button("Run Verification") and product_name:
         st.markdown(f"**B&H Price:** {price}")
         if mpn and not mpn_verified:
             st.markdown("⚠️ MPN not confirmed on page. Match appears accurate, but verify manually.")
+        elif not mpn:
+            st.markdown("⚠️ MPN not supplied. Displaying top result from B&H search.")
         product_found = True
         break
 
@@ -64,4 +72,4 @@ if st.button("Run Verification") and product_name:
         st.warning("🔍 B&H product not found or MPN mismatch.")
 
     st.divider()
-    st.caption("Adorama, eBay, and MPB integration coming soon. Now includes deeper fallback logic and MPN verification warning.")
+    st.caption("Now includes metadata MPN matching, softened product name logic, and top-result fallback.")
