@@ -11,27 +11,6 @@ st.markdown("Check product availability, pricing trends, and used value insights
 product_name = st.text_input("📦 Product Name (with mount type)", placeholder="e.g. Sony FE 24-70mm f/2.8 GM OSS II")
 mpn = st.text_input("🧾 Manufacturer Part Number (optional)", placeholder="e.g. SEL70200GM2")
 
-if st.button("Run Verification"):
-    if not product_name and not mpn:
-        st.warning("Please enter a product name, MPN, or both.")
-    else:
-        result = lookup_bh(product_name, mpn)
-        st.markdown("## 🛒 B&H Retail Search")
-        st.markdown(f"🔗 [View B&H search results]({result['link']})")
-
-        if "🟢" in result["status"]:
-            st.success(result["status"])
-        elif "⚠️" in result["status"]:
-            st.warning(result["status"])
-        elif "🟡" in result["status"]:
-            st.info(result["status"])
-        else:
-            st.error(result["status"])
-
-        st.markdown("---")
-        st.caption("Now supports MPN-only searches, fallback search logic, and validates input.")
-
-
 def lookup_bh(product_name, mpn=None):
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -93,7 +72,6 @@ def lookup_bh(product_name, mpn=None):
             except json.JSONDecodeError:
                 continue
 
-        # No MPN found in metadata
         return {
             "status": "🟡 Metadata not found — manual review needed.",
             "link": manual_link,
@@ -103,4 +81,27 @@ def lookup_bh(product_name, mpn=None):
     except Exception as e:
         return {
             "status": f"❌ B&H fetch error: {str(e)}",
-            "link": manual
+            "link": manual_link,
+            "mpn_match": False
+        }
+
+# Run interface
+if st.button("Run Verification"):
+    if not product_name and not mpn:
+        st.warning("Please enter a product name, MPN, or both.")
+    else:
+        result = lookup_bh(product_name, mpn)
+        st.markdown("## 🛒 B&H Retail Search")
+        st.markdown(f"🔗 [View B&H search results]({result['link']})")
+
+        if "🟢" in result["status"]:
+            st.success(result["status"])
+        elif "⚠️" in result["status"]:
+            st.warning(result["status"])
+        elif "🟡" in result["status"]:
+            st.info(result["status"])
+        else:
+            st.error(result["status"])
+
+        st.markdown("---")
+        st.caption("Now supports MPN-only searches, fallback search logic, and validates input.")
