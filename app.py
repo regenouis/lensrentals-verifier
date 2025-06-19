@@ -11,70 +11,70 @@ st.markdown("Check product availability, pricing trends, and used value insights
 product_name = st.text_input("📦 Product Name (with mount type)")
 mpn_input = st.text_input("🔢 Manufacturer Part Number (optional)")
 
-if st.button("Run Verification") and product_name.strip():
-    st.subheader("🛒 B&H Retail Search")
-
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    # Use MPN if available; otherwise, fall back to product name
-    if mpn_input.strip():
-        bh_search_url = f"https://www.bhphotovideo.com/c/search?q={mpn_input.strip()}"
+if st.button("Run Verification"):
+    if not (product_name.strip() or mpn_input.strip()):
+        st.warning("⚠️ Please enter at least a product name or manufacturer part number.")
     else:
-        query = '+'.join(product_name.strip().split())
-        bh_search_url = f"https://www.bhphotovideo.com/c/search?Ntt={query}&N=0&InitialSearch=yes"
+        st.subheader("🛒 B&H Retail Search")
+        headers = {"User-Agent": "Mozilla/5.0"}
 
-    st.markdown(f"🔗 [View B&H search results]({bh_search_url})")
+        # Prefer MPN for search if present
+        if mpn_input.strip():
+            bh_search_url = f"https://www.bhphotovideo.com/c/search?q={mpn_input.strip()}"
+        else:
+            query = '+'.join(product_name.strip().split())
+            bh_search_url = f"https://www.bhphotovideo.com/c/search?Ntt={query}&N=0&InitialSearch=yes"
 
-    try:
-        response = requests.get(bh_search_url, headers=headers)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
+        st.markdown(f"🔗 [View B&H search results]({bh_search_url})")
 
-        # Extract top results
-        result_links = []
-        seen = set()
-        for a in soup.find_all("a", href=True):
-            href = a["href"]
-            if "/c/product/" in href and href not in seen:
-                full_url = f"https://www.bhphotovideo.com{href}"
-                seen.add(href)
-                result_links.append(full_url)
-            if len(result_links) >= 3:
-                break
+        try:
+            response = requests.get(bh_search_url, headers=headers)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
 
-        # Visit product pages
-        found = False
-        for link in result_links:
-            prod_page = requests.get(link, headers=headers)
-            prod_soup = BeautifulSoup(prod_page.text, "html.parser")
-            matched = False
+            result_links = []
+            seen = set()
+            for a in soup.find_all("a", href=True):
+                href = a["href"]
+                if "/c/product/" in href and href not in seen:
+                    result_links.append(f"https://www.bhphotovideo.com{href}")
+                    seen.add(href)
+                if len(result_links) >= 3:
+                    break
 
-            for script in prod_soup.find_all("script", type="application/ld+json"):
-                try:
-                    data = json.loads(script.string.strip())
-                    if isinstance(data, dict) and "mpn" in data:
-                        if mpn_input:
-                            if data["mpn"].lower() == mpn_input.lower():
+            found = False
+            for link in result_links:
+                prod_page = requests.get(link, headers=headers)
+                prod_soup = BeautifulSoup(prod_page.text, "html.parser")
+                matched = False
+
+                for script in prod_soup.find_all("script", type="application/ld+json"):
+                    try:
+                        data = json.loads(script.string.strip())
+                        if isinstance(data, dict) and "mpn" in data:
+                            if mpn_input:
+                                if data["mpn"].lower() == mpn_input.lower():
+                                    matched = True
+                                    break
+                            else:
                                 matched = True
                                 break
-                        else:
-                            matched = True
-                            break
-                except:
-                    continue
+                    except:
+                        continue
 
-            if matched:
-                price_tag = prod_soup.find("span", class_="price_1DPoToKrLP8uWvruGqgtaY")
-                price = price_tag.text.strip() if price_tag else "N/A"
-                st.success(f"✅ Product Found: [View Product]({link})")
-                st.markdown(f"**MPN Match:** `{mpn_input}`")
-                st.markdown(f"**Price:** {price}")
-                found = True
-                break
+                if matched:
+                    price_tag = prod_soup.find("span", class_="price_1DPoToKrLP8uWvruGqgtaY")
+                    price = price_tag.text.strip() if price_tag else "N/A"
+                    st.success(f"✅ Product Found: [View Product]({link})")
+                    if mpn_input:
+                        st.markdown(f"**MPN Match:** `{mpn_input}`")
+                    st.markdown(f"**Price:** {price}")
+                    found = True
+                    break
 
-        if not found:
-            st.warning("🔍 B&H product not found or MPN mismatch.")
-    except Exception as e:
-        st.error("❌ Failed to fetch B&H page.")
+            if not found:
+                st.warning("🔍 B&H product not found or MPN mismatch.")
+        except Exception as e:
+            st.error("❌ Failed to fetch B&H page.")
 
-    st.caption("Now uses MPN-first B&H search logic with structured metadata matching.")
+        st.caption("Now supports MPN-only searches, fallback search logic, and validates input.")
