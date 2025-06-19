@@ -4,7 +4,6 @@ from bs4 import BeautifulSoup
 import json
 
 st.set_page_config(page_title="Lensrentals Product Verifier", layout="centered")
-
 st.markdown("# 🔍 Lensrentals Product Verifier")
 st.markdown("Check product availability, pricing trends, and used value insights from top retailers.")
 
@@ -16,7 +15,6 @@ def lookup_bh(product_name, mpn=None):
         "User-Agent": "Mozilla/5.0"
     }
 
-    # Determine search query
     if mpn:
         query = mpn
     elif product_name:
@@ -25,20 +23,24 @@ def lookup_bh(product_name, mpn=None):
         return {
             "status": "❌ No input provided.",
             "link": "",
-            "mpn_match": False
+            "mpn_match": False,
+            "error": True
         }
 
     search_url = f"https://www.bhphotovideo.com/c/search?q={query}&sts=ma"
-    manual_link = search_url
+    result = {
+        "link": search_url,
+        "status": "",
+        "mpn_match": False,
+        "error": False
+    }
 
     try:
         response = requests.get(search_url, headers=headers, timeout=15)
         if response.status_code != 200:
-            return {
-                "status": "❌ Failed to fetch B&H page.",
-                "link": manual_link,
-                "mpn_match": False
-            }
+            result["status"] = f"❌ Failed to fetch B&H page (status {response.status_code})"
+            result["error"] = True
+            return result
 
         soup = BeautifulSoup(response.content, "html.parser")
         scripts = soup.find_all("script", type="application/ld+json")
@@ -52,40 +54,29 @@ def lookup_bh(product_name, mpn=None):
                     found_mpn = data["mpn"].strip().upper()
                     if mpn:
                         if found_mpn == mpn.upper():
-                            return {
-                                "status": "🟢 In Stock (MPN verified)",
-                                "link": manual_link,
-                                "mpn_match": True
-                            }
+                            result["status"] = "🟢 In Stock (MPN verified)"
+                            result["mpn_match"] = True
+                            return result
                         else:
-                            return {
-                                "status": "⚠️ MPN mismatch — review manually.",
-                                "link": manual_link,
-                                "mpn_match": False
-                            }
+                            result["status"] = f"⚠️ MPN mismatch — found `{found_mpn}`"
+                            return result
                     else:
-                        return {
-                            "status": "🟢 In Stock (via metadata match)",
-                            "link": manual_link,
-                            "mpn_match": True
-                        }
+                        result["status"] = "🟢 In Stock (metadata present)"
+                        result["mpn_match"] = True
+                        return result
             except json.JSONDecodeError:
                 continue
 
-        return {
-            "status": "🟡 Metadata not found — manual review needed.",
-            "link": manual_link,
-            "mpn_match": False
-        }
+        # Page loaded, but no metadata matched
+        result["status"] = "🟡 Metadata not found — review manually."
+        return result
 
     except Exception as e:
-        return {
-            "status": f"❌ B&H fetch error: {str(e)}",
-            "link": manual_link,
-            "mpn_match": False
-        }
+        result["status"] = f"❌ Fetch error: {str(e)}"
+        result["error"] = True
+        return result
 
-# Run interface
+# UI logic
 if st.button("Run Verification"):
     if not product_name and not mpn:
         st.warning("Please enter a product name, MPN, or both.")
@@ -94,14 +85,16 @@ if st.button("Run Verification"):
         st.markdown("## 🛒 B&H Retail Search")
         st.markdown(f"🔗 [View B&H search results]({result['link']})")
 
-        if "🟢" in result["status"]:
+        if result["error"]:
+            st.error(result["status"])
+        elif "🟢" in result["status"]:
             st.success(result["status"])
         elif "⚠️" in result["status"]:
             st.warning(result["status"])
         elif "🟡" in result["status"]:
             st.info(result["status"])
         else:
-            st.error(result["status"])
+            st.write(result["status"])
 
         st.markdown("---")
-        st.caption("Now supports MPN-only searches, fallback search logic, and validates input.")
+        st.caption("Now shows true fetch errors separately from metadata results.")
