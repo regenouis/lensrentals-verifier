@@ -1,31 +1,42 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 import requests
 
 app = Flask(__name__)
 
 @app.route("/")
-def retail_price_viewer():
-    # Pass an empty results dict to prevent template errors
-    return render_template("retail_price_viewer.html", results={})
+def index():
+    return render_template("retail_price_viewer.html")
 
 @app.route("/lookup", methods=["POST"])
 def lookup():
-    data = request.get_json()
-    product_name = data.get("product_name")
-    mpn = data.get("mpn")
+    product_name = request.form.get("product_name", "").strip()
+    mpn = request.form.get("mpn", "").strip()
 
-    # Replace with your actual backend URL or local logic
-    backend_url = "https://verifier-backend-met4.onrender.com/lookup_bh"
+    if not product_name and not mpn:
+        return render_template("retail_price_viewer.html", results=None, error="Please enter a product name.")
 
-    try:
-        response = requests.post(backend_url, json={"product_name": product_name, "mpn": mpn})
-        response.raise_for_status()
-        results = response.json()
-    except Exception as e:
-        results = {"error": str(e)}
+    # Example mocked results; replace this with your actual price checking logic
+    results = {
+        "B&H": {
+            "status": "Found" if mpn else "Manual Review",
+            "price": "$1999.00" if mpn else "N/A",
+            "url": f"https://www.bhphotovideo.com/c/search?q={mpn or product_name}"
+        },
+        "Adorama": {
+            "status": "Found" if mpn else "Not Found",
+            "price": "$1979.00" if mpn else "N/A",
+            "url": f"https://www.adorama.com/l/?searchinfo={mpn or product_name}"
+        },
+        "eBay": {
+            "status": "Check Manually",
+            "price": "See sold listings",
+            "url": f"https://www.ebay.com/sch/i.html?_nkw={mpn or product_name}"
+        },
+        "MPB": {
+            "status": "Available",
+            "price": "$1899.00",
+            "url": f"https://www.mpb.com/en-us/search/?q={mpn or product_name}"
+        }
+    }
 
-    # Send results to the same template
-    return render_template("retail_price_viewer.html", results=results)
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    return render_template("retail_price_viewer.html", results=results, error=None)
