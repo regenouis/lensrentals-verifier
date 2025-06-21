@@ -1,73 +1,43 @@
-from flask import Flask, request, jsonify
-import requests
+from flask import Flask, request, jsonify, render_template
 from bs4 import BeautifulSoup
-import json
+import requests
 
 app = Flask(__name__)
 
 @app.route("/")
-def index():
-    return "✅ Lensrentals Verifier Backend is live."
+def retail_price_viewer():
+    return render_template("retail_price_viewer.html")
 
 @app.route("/lookup_bh", methods=["POST"])
 def lookup_bh():
-    data = request.json
+    data = request.get_json()
     product_name = data.get("product_name")
     mpn = data.get("mpn")
-
-    headers = {"User-Agent": "Mozilla/5.0"}
-    query = mpn or product_name
-    search_url = f"https://www.bhphotovideo.com/c/search?q={query}&sts=ma"
-
-    result = {
-        "bh": {
-            "link": search_url,
-            "status": "",
-            "mpn_match": False,
-            "error": False,
-            "review_flag": False
-        }
+    
+    bh_url = f"https://www.bhphotovideo.com/c/search?q={mpn}&sts=ma"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
 
     try:
-        response = requests.get(search_url, headers=headers, timeout=15)
-        if response.status_code != 200:
-            result["bh"]["status"] = f"⚠️ Manual review required — B&H returned {response.status_code}"
-            result["bh"]["error"] = True
-            result["bh"]["review_flag"] = True
-            return jsonify(result)
-
-        soup = BeautifulSoup(response.content, "html.parser")
-        scripts = soup.find_all("script", type="application/ld+json")
-
-        for script in scripts:
-            if not script.string:
-                continue
-            try:
-                data = json.loads(script.string.strip())
-                if isinstance(data, dict) and "mpn" in data:
-                    found_mpn = data["mpn"].strip().upper()
-                    if mpn and found_mpn == mpn.upper():
-                        result["bh"]["status"] = "🟢 In Stock (MPN verified)"
-                        result["bh"]["mpn_match"] = True
-                        return jsonify(result)
-                    elif mpn:
-                        result["bh"]["status"] = f"⚠️ MPN mismatch — found `{found_mpn}`"
-                        result["bh"]["review_flag"] = True
-                        return jsonify(result)
-                    else:
-                        result["bh"]["status"] = "🟢 In Stock (metadata present)"
-                        result["bh"]["mpn_match"] = True
-                        return jsonify(result)
-            except json.JSONDecodeError:
-                continue
-
-        result["bh"]["status"] = "🟡 Metadata not found — manual review suggested"
-        result["bh"]["review_flag"] = True
-        return jsonify(result)
-
+        res = requests.get(bh_url, headers=headers, timeout=10)
+        if res.status_code != 200:
+            return jsonify({"error": True, "link": bh_url, "mpn_match": False, "status": f"Failed to fetch B&H page (status {res.status_code})"})
+        soup = BeautifulSoup(res.text, "html.parser")
+        product_blocks = soup.find_all("div", class_="itemWrapper")
+        match_found = False
+        for block in product_blocks:
+            if mpn.lower() in block.text.lower():
+                match_found = True
+                break
+        return jsonify({
+            "error": False,
+            "link": bh_url,
+            "mpn_match": match_found,
+            "status": "MPN match found" if match_found else "MPN not found"
+        })
     except Exception as e:
-        result["bh"]["status"] = f"❌ Fetch error: {str(e)}"
-        result["bh"]["error"] = True
-        result["bh"]["review_flag"] = True
-        return jsonify(result)
+        return jsonify({"error": True, "link": bh_url, "mpn_match": False, "status": f"Error: {str(e)}"})
+
+if __name__ == "__main__":
+    app.run(debug=True)
