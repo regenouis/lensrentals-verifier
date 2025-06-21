@@ -67,7 +67,6 @@ def lookup_bh(product_name, mpn=None):
             except json.JSONDecodeError:
                 continue
 
-        # Page loaded, but no metadata matched
         result["status"] = "🟡 Metadata not found — review manually."
         return result
 
@@ -76,7 +75,11 @@ def lookup_bh(product_name, mpn=None):
         result["error"] = True
         return result
 
-# UI logic
+# UI guard to prevent spinner stall
+if not product_name and not mpn:
+    st.info("Waiting for input...")
+
+# Run verification
 if st.button("Run Verification"):
     if not product_name and not mpn:
         st.warning("Please enter a product name, MPN, or both.")
@@ -98,3 +101,6 @@ if st.button("Run Verification"):
 
         st.markdown("---")
         st.caption("Now shows true fetch errors separately from metadata results.")
+
+# Confirm app has loaded
+st.caption("App loaded successfully. Ready for input.")
