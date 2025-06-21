@@ -1,94 +1,93 @@
-templates/retail_price_viewer.html
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Retail Price Verifier</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 2rem;
-            background-color: #f9f9f9;
-            color: #333;
-        }
-        h1 {
-            text-align: center;
-            color: #2c3e50;
-        }
-        .source-block {
-            background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            margin: 1.5rem auto;
-            padding: 1rem 1.5rem;
-            max-width: 700px;
-        }
-        .source-block h2 {
-            margin-top: 0;
-            color: #34495e;
-        }
-        .status {
-            font-weight: bold;
-        }
-        .available {
-            color: green;
-        }
-        .unavailable {
-            color: red;
-        }
-        .price {
-            margin: 0.2rem 0;
-        }
-        a {
-            color: #2980b9;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-        .missing {
-            color: #999;
-            font-style: italic;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Retail Price Verifier</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+      padding: 2rem;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    form {
+      max-width: 500px;
+      margin: 2rem auto;
+      background: #ffffff;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      background-color: #2c3e50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .results {
+      max-width: 700px;
+      margin: 2rem auto;
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+    .source-block {
+      margin-bottom: 1rem;
+    }
+    .source-block h2 {
+      margin-bottom: 0.5rem;
+    }
+    .price {
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+    }
+  </style>
 </head>
 <body>
-    <h1>Retail Price Verifier</h1>
+  <h1>Retail Price Verifier</h1>
+  <form action="/lookup" method="post">
+    <label for="product_name">Product Name</label>
+    <input type="text" name="product_name" id="product_name" required />
 
-    {% for source, data in results.items() %}
-        <div class="source-block">
+    <label for="mpn">MPN (Manufacturer Part Number)</label>
+    <input type="text" name="mpn" id="mpn" required />
+
+    <button type="submit">Check Prices</button>
+  </form>
+
+  {% if results %}
+    <div class="results">
+      {% if results.error %}
+        <p class="error">Error: {{ results.error }}</p>
+      {% else %}
+        {% for source, data in results.items() %}
+          <div class="source-block">
             <h2>{{ source | title }}</h2>
-
-            {% if data.error %}
-                <p class="status unavailable">⚠️ Error fetching data: {{ data.message or "Unavailable" }}</p>
-                {% if data.link %}
-                    <p><a href="{{ data.link }}" target="_blank">View source page</a></p>
-                {% endif %}
-            {% else %}
-                <p class="status available">✅ Data retrieved successfully</p>
-                {% if data.link %}
-                    <p><a href="{{ data.link }}" target="_blank">View source page</a></p>
-                {% endif %}
-
-                {% if data.new %}
-                    <p class="price">🆕 New Price: {{ data.new }}</p>
-                {% else %}
-                    <p class="missing">No new price available</p>
-                {% endif %}
-
-                {% if data.used %}
-                    <p class="price">♻️ Used Price: {{ data.used }}</p>
-                {% else %}
-                    <p class="missing">No used price available</p>
-                {% endif %}
-
-                {% if data.sold %}
-                    <p class="price">🕓 Recently Sold: {{ data.sold }}</p>
-                {% else %}
-                    <p class="missing">No sold listings found</p>
-                {% endif %}
+            {% if data.link %}
+              <p><a href="{{ data.link }}" target="_blank">View on {{ source | title }}</a></p>
             {% endif %}
-        </div>
-    {% endfor %}
-</body>
-</html>
+            {% if data.status %}<p>Status: {{ data.status }}</p>{% endif %}
+            {% if data.new_price %}<p>New Price: <span class="price">{{ data.new_price }}</span></p>{% endif %}
+            {% if data.used_price %}<_
