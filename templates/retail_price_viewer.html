@@ -88,6 +88,5 @@
             {% if data.link %}
               <p><a href="{{ data.link }}" target="_blank">View on {{ source | title }}</a></p>
             {% endif %}
-            {% if data.status %}<p>Status: {{ data.status }}</p>{% endif %}
-            {% if data.new_price %}<p>New Price: <span class="price">{{ data.new_price }}</span></p>{% endif %}
-            {% if data.used_price %}<_
+            {% if data.status %}
+              <p>Status: {{ data.status }}</p>
