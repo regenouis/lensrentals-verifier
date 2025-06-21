@@ -1,0 +1,94 @@
+templates/retail_price_viewer.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Retail Price Verifier</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 2rem;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .source-block {
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin: 1.5rem auto;
+            padding: 1rem 1.5rem;
+            max-width: 700px;
+        }
+        .source-block h2 {
+            margin-top: 0;
+            color: #34495e;
+        }
+        .status {
+            font-weight: bold;
+        }
+        .available {
+            color: green;
+        }
+        .unavailable {
+            color: red;
+        }
+        .price {
+            margin: 0.2rem 0;
+        }
+        a {
+            color: #2980b9;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .missing {
+            color: #999;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Retail Price Verifier</h1>
+
+    {% for source, data in results.items() %}
+        <div class="source-block">
+            <h2>{{ source | title }}</h2>
+
+            {% if data.error %}
+                <p class="status unavailable">⚠️ Error fetching data: {{ data.message or "Unavailable" }}</p>
+                {% if data.link %}
+                    <p><a href="{{ data.link }}" target="_blank">View source page</a></p>
+                {% endif %}
+            {% else %}
+                <p class="status available">✅ Data retrieved successfully</p>
+                {% if data.link %}
+                    <p><a href="{{ data.link }}" target="_blank">View source page</a></p>
+                {% endif %}
+
+                {% if data.new %}
+                    <p class="price">🆕 New Price: {{ data.new }}</p>
+                {% else %}
+                    <p class="missing">No new price available</p>
+                {% endif %}
+
+                {% if data.used %}
+                    <p class="price">♻️ Used Price: {{ data.used }}</p>
+                {% else %}
+                    <p class="missing">No used price available</p>
+                {% endif %}
+
+                {% if data.sold %}
+                    <p class="price">🕓 Recently Sold: {{ data.sold }}</p>
+                {% else %}
+                    <p class="missing">No sold listings found</p>
+                {% endif %}
+            {% endif %}
+        </div>
+    {% endfor %}
+</body>
+</html>
