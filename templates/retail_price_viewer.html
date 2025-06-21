@@ -52,7 +52,7 @@
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
     }
     .source-block {
-      margin-bottom: 1rem;
+      margin-bottom: 1.5rem;
     }
     .source-block h2 {
       margin-bottom: 0.5rem;
@@ -90,3 +90,20 @@
             {% endif %}
             {% if data.status %}
               <p>Status: {{ data.status }}</p>
+            {% endif %}
+            {% if data.new_price %}
+              <p>New Price: <span class="price">{{ data.new_price }}</span></p>
+            {% endif %}
+            {% if data.used_price %}
+              <p>Used Price: <span class="price">{{ data.used_price }}</span></p>
+            {% endif %}
+            {% if data.sold_price %}
+              <p>Recently Sold: <span class="price">{{ data.sold_price }}</span></p>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  {% endif %}
+</body>
+</html>
