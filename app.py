@@ -1,3 +1,13 @@
+from flask import Flask, request, render_template
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
+@app.route('/')
+def home():
+    return render_template('retail_price_viewer.html')
+
 @app.route('/lookup', methods=['POST'])
 def lookup():
     product_name = request.form.get('product_name', '').strip()
@@ -6,9 +16,11 @@ def lookup():
     if not product_name:
         return render_template('retail_price_viewer.html', error="Product name is required.")
 
+    # Use MPN if present; fallback to product name
     search_term = mpn if mpn else product_name
     encoded_search = search_term.replace(' ', '+')
 
+    # Simulated test data with real search links
     results = {
         'B&H Photo': {
             'price': 'In Stock — $3,199.99',
@@ -28,4 +40,10 @@ def lookup():
         }
     }
 
-    return render_template('retail_price_viewer.html', results=results)
+    return render_template(
+        'retail_price_viewer.html',
+        results=results
+    )
+
+if __name__ == '__main__':
+    app.run(debug=True)
