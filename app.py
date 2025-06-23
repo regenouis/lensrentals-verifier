@@ -1,13 +1,3 @@
-from flask import Flask, request, render_template
-from flask_cors import CORS
-
-app = Flask(__name__)
-CORS(app)
-
-@app.route('/')
-def home():
-    return render_template('retail_price_viewer.html')
-
 @app.route('/lookup', methods=['POST'])
 def lookup():
     product_name = request.form.get('product_name', '').strip()
@@ -16,23 +6,25 @@ def lookup():
     if not product_name:
         return render_template('retail_price_viewer.html', error="Product name is required.")
 
-    # Simulated results — replace with your scraper logic
+    search_term = mpn if mpn else product_name
+    encoded_search = search_term.replace(' ', '+')
+
     results = {
         'B&H Photo': {
             'price': 'In Stock — $3,199.99',
-            'url': 'https://www.bhphotovideo.com/'
+            'url': f'https://www.bhphotovideo.com/c/search?Ntt={encoded_search}'
         },
         'Adorama': {
             'price': 'Out of Stock',
-            'url': 'https://www.adorama.com/'
+            'url': f'https://www.adorama.com/l/?searchinfo={encoded_search}'
         },
         'eBay Sold': {
             'price': '$2,950 avg (last 3 sold)',
-            'url': 'https://www.ebay.com/'
+            'url': f'https://www.ebay.com/sch/i.html?_nkw={encoded_search}&LH_Sold=1'
         },
         'MPB': {
             'price': 'Used — $2,780',
-            'url': 'https://www.mpb.com/'
+            'url': f'https://www.mpb.com/en-us/search/?q={encoded_search}'
         }
     }
 
