@@ -1,109 +1,86 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Retail Price Verifier</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f9f9f9;
       padding: 2rem;
+      background-color: #f9f9f9;
       color: #333;
     }
     h1 {
       text-align: center;
       color: #2c3e50;
     }
-    form {
-      max-width: 500px;
-      margin: 2rem auto;
+    .source-block {
       background: #ffffff;
-      padding: 2rem;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      margin: 1.5rem auto;
+      padding: 1rem 1.5rem;
+      max-width: 700px;
+    }
+    .form-group {
+      margin-bottom: 1rem;
     }
     label {
       display: block;
       margin-bottom: 0.5rem;
     }
-    input[type="text"] {
+    input {
       width: 100%;
       padding: 0.5rem;
-      margin-bottom: 1.5rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      font-size: 1rem;
     }
     button {
       width: 100%;
       padding: 0.75rem;
       background-color: #2c3e50;
       color: white;
+      font-size: 1rem;
       border: none;
       border-radius: 4px;
-      font-size: 1rem;
       cursor: pointer;
     }
-    .results {
-      max-width: 700px;
-      margin: 2rem auto;
-      background: #fff;
-      padding: 1.5rem;
-      border-radius: 10px;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    }
-    .source-block {
-      margin-bottom: 1.5rem;
-    }
-    .source-block h2 {
-      margin-bottom: 0.5rem;
-    }
-    .price {
-      font-weight: bold;
-    }
-    .error {
-      color: red;
+    .result {
+      margin-top: 1.5rem;
     }
   </style>
 </head>
 <body>
   <h1>Retail Price Verifier</h1>
-  <form action="/lookup" method="post">
-    <label for="product_name">Product Name</label>
-    <input type="text" name="product_name" id="product_name" required />
+  <div class="source-block">
+    <form method="POST" action="/lookup">
+      <div class="form-group">
+        <label for="product_name">Product Name</label>
+        <input type="text" id="product_name" name="product_name" required>
+      </div>
+      <div class="form-group">
+        <label for="mpn">MPN (Manufacturer Part Number)</label>
+        <input type="text" id="mpn" name="mpn"> <!-- No longer required -->
+      </div>
+      <button type="submit">Check Prices</button>
+    </form>
 
-    <label for="mpn">MPN (Manufacturer Part Number)</label>
-    <input type="text" name="mpn" id="mpn" required />
-
-    <button type="submit">Check Prices</button>
-  </form>
-
-  {% if results %}
-    <div class="results">
-      {% if results.error %}
-        <p class="error">Error: {{ results.error }}</p>
-      {% else %}
+    {% if results %}
+      <div class="result">
         {% for source, data in results.items() %}
-          <div class="source-block">
-            <h2>{{ source | title }}</h2>
-            {% if data.link %}
-              <p><a href="{{ data.link }}" target="_blank">View on {{ source | title }}</a></p>
-            {% endif %}
-            {% if data.status %}
-              <p>Status: {{ data.status }}</p>
-            {% endif %}
-            {% if data.new_price %}
-              <p>New Price: <span class="price">{{ data.new_price }}</span></p>
-            {% endif %}
-            {% if data.used_price %}
-              <p>Used Price: <span class="price">{{ data.used_price }}</span></p>
-            {% endif %}
-            {% if data.sold_price %}
-              <p>Recently Sold: <span class="price">{{ data.sold_price }}</span></p>
-            {% endif %}
-          </div>
+          <h2>{{ source }}</h2>
+          <p>Status: {{ data.status }}</p>
+          {% if data.used_price %}
+            <p>Used Price: {{ data.used_price }}</p>
+          {% endif %}
+          {% if data.new_price %}
+            <p>New Price: {{ data.new_price }}</p>
+          {% endif %}
+          {% if data.link %}
+            <p><a href="{{ data.link }}" target="_blank">View Listing</a></p>
+          {% endif %}
         {% endfor %}
-      {% endif %}
-    </div>
-  {% endif %}
+      </div>
+    {% endif %}
+  </div>
 </body>
 </html>
