@@ -1,62 +1,25 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Lensrentals Product Verifier</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
-  <div class="container mt-5">
-    <h1 class="mb-4">🔍 Lensrentals Product Verifier</h1>
-
-    <form method="POST" action="/lookup" class="mb-4">
-      <div class="form-group">
-        <label for="product_name">Product Name</label>
-        <input type="text" class="form-control" id="product_name" name="product_name" required>
-      </div>
-      <div class="form-group">
-        <label for="mpn">MPN (Manufacturer Part Number)</label>
-        <input type="text" class="form-control" id="mpn" name="mpn">
-      </div>
-      <button type="submit" class="btn btn-primary btn-block">Check Prices</button>
-    </form>
-
-    {% if results %}
-      <h3>📦 Retailer Results</h3>
-      <div class="card-deck">
-
-        {% for retailer, result in results.items() %}
-          <div class="card mb-3">
-            <div class="card-body">
-              <h5 class="card-title">{{ retailer }}</h5>
-              <p class="card-text">
-                {{ result.status }}
-              </p>
-
-              {% if result.title and result.price %}
-                <p><strong>{{ result.title }}</strong><br>Price: {{ result.price }}</p>
-                <a href="{{ result.link }}" target="_blank" class="btn btn-success btn-sm">View Product</a>
-              {% elif result.alternatives %}
-                <p><em>No confident match — here are possible matches:</em></p>
-                <ul>
-                  {% for alt in result.alternatives %}
-                    <li>
-                      <strong>{{ alt.title }}</strong> — {{ alt.price }}<br>
-                      <a href="{{ alt.link }}" target="_blank">View</a>
-                    </li>
-                  {% endfor %}
-                </ul>
-                {% if result.search_link %}
-                  <a href="{{ result.search_link }}" target="_blank" class="btn btn-secondary btn-sm mt-2">Search B&H Manually</a>
-                {% endif %}
-              {% endif %}
-            </div>
-          </div>
-        {% endfor %}
-
-      </div>
-    {% endif %}
-
+<form onsubmit="return validateForm()">
+  <div class="form-group">
+    <label for="product">Product Name</label>
+    <input type="text" class="form-control" id="product" name="product" placeholder="e.g., Sony FX3" />
   </div>
-</body>
-</html>
+  <div class="form-group">
+    <label for="mpn">MPN (Manufacturer Part Number)</label>
+    <input type="text" class="form-control" id="mpn" name="mpn" placeholder="e.g., ILMEFX3/B" />
+  </div>
+  <button type="submit" class="btn btn-primary btn-block mt-3">Check Prices</button>
+</form>
+
+<script>
+  function validateForm() {
+    const product = document.getElementById("product").value.trim();
+    const mpn = document.getElementById("mpn").value.trim();
+
+    if (!product && !mpn) {
+      alert("Please enter either a product name or MPN.");
+      return false;
+    }
+
+    return true;
+  }
+</script>
