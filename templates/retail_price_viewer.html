@@ -1,80 +1,42 @@
-import React, { useState } from 'react';
-import './App.css'; // Optional for styling
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lensrentals Product Verifier</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Lensrentals Product Verifier</h1>
+        <form method="post">
+            <input type="text" name="product_name" placeholder="e.g., Sony FX3" required>
+            <input type="text" name="mpn" placeholder="e.g., ILMEFX3/B" required>
+            <button type="submit">Check Prices</button>
+        </form>
 
-export default function RetailPriceViewer() {
-  const [productName, setProductName] = useState('');
-  const [mpn, setMpn] = useState('');
-  const [results, setResults] = useState(null);
-  const [error, setError] = useState('');
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
 
-  const handleSubmit = async () => {
-    if (!productName || !mpn) {
-      setError('Both product name and MPN are required');
-      return;
-    }
-    setError('');
-    setResults(null);
-
-    try {
-      const response = await fetch('https://verifier-backend-met4.onrender.com/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_name: productName, mpn }),
-      });
-      const data = await response.json();
-      setResults(data);
-    } catch (err) {
-      setError('Something went wrong. Try again later.');
-    }
-  };
-
-  const formatLink = (site, data) => {
-    const lookup = {
-      adorama: `https://www.adorama.com/${mpn}.html`,
-      bh_photo: `https://www.bhphotovideo.com/c/search?Ntt=${encodeURIComponent(mpn)}&N=0`,
-      ebay_sold: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(mpn)}&_sacat=0&LH_Sold=1&LH_Complete=1`,
-      mpb: `https://www.mpb.com/en-us/search/?q=${encodeURIComponent(productName)}`,
-    };
-
-    return (
-      <p>
-        <strong>{site.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}:</strong>{' '}
-        <a href={lookup[site]} target="_blank" rel="noopener noreferrer">
-          {data}
-        </a>
-      </p>
-    );
-  };
-
-  return (
-    <div className="price-checker">
-      <h2>🔍 Lensrentals Product Verifier</h2>
-      <input
-        type="text"
-        placeholder="e.g., Sony FX3"
-        value={productName}
-        onChange={e => setProductName(e.target.value)}
-      />
-      <input
-        type="text"
-        placeholder="e.g., ILMEFX3/B"
-        value={mpn}
-        onChange={e => setMpn(e.target.value)}
-      />
-      <button onClick={handleSubmit}>Check Prices</button>
-
-      {error && <p className="error">{error}</p>}
-
-      {results && (
-        <div className="result-card">
-          <h3>📊 Price Summary for <em>{results.product_name}</em> (MPN: {results.mpn})</h3>
-          <div className="result-links">
-            {Object.entries(results).map(([key, val]) =>
-              ['adorama', 'bh_photo', 'ebay_sold', 'mpb'].includes(key) ? formatLink(key, val) : null
-            )}
-          </div>
-        </div>
-      )}
+        {% if results %}
+            <div class="results">
+                <h2>🔗 Pricing Summary</h2>
+                <ul>
+                    {% for site, data in results.items() %}
+                        <li>
+                            <strong>{{ site }}:</strong>
+                            {% if data.url %}
+                                <a href="{{ data.url }}" target="_blank">
+                                    {{ data.price or 'View Listing' }}
+                                </a>
+                            {% else %}
+                                {{ data.price or 'No data found' }}
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
     </div>
-  );
-}
+</body>
+</html>
