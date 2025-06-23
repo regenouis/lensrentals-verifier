@@ -13,14 +13,15 @@ def lookup():
     product_name = request.form.get('product_name', '').strip()
     mpn = request.form.get('mpn', '').strip()
 
-    if not product_name:
-        return render_template('retail_price_viewer.html', error="Product name is required.")
+    if not product_name and not mpn:
+        return render_template(
+            'retail_price_viewer.html',
+            error="Please enter either a product name or an MPN."
+        )
 
-    # Use MPN if present; fallback to product name
     search_term = mpn if mpn else product_name
     encoded_search = search_term.replace(' ', '+')
 
-    # Simulated test data with real search links
     results = {
         'B&H Photo': {
             'price': 'In Stock — $3,199.99',
