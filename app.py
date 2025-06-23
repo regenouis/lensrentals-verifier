@@ -10,21 +10,29 @@ CORS(app)
 def home():
     return render_template('retail_price_viewer.html')
 
-
 @app.route('/lookup', methods=['POST'])
 def lookup():
     data = request.get_json()
+
+    if not data:
+        return jsonify({'error': 'No JSON payload received'}), 400
 
     product_name = data.get('product_name', '').strip()
     mpn = data.get('mpn', '').strip()
 
     if not product_name and not mpn:
-        return jsonify({'error': 'Product name or MPN is required'}), 400
+        return jsonify({'error': 'Please provide either a product name or MPN'}), 400
 
-    bh_result = scrape_bh_by_mpn(mpn) if mpn else {'price': 'Skipped', 'url': 'https://www.bhphotovideo.com'}
-    adorama = 'Out of Stock'  # Placeholder
-    ebay_sold = '$2,950 avg (last 3 sold)'  # Placeholder
-    mpb = 'Used — $2,780'  # Placeholder
+    # For now, simulate scraper output with dummy data
+    # In real implementation, this will use requests/BeautifulSoup to fetch & parse real pages
+    bh_result = {
+        'price': 'In Stock — $3,199.99',
+        'url': f"https://www.bhphotovideo.com/c/search?Ntt={mpn or product_name}&N=0"
+    }
+
+    adorama = 'Out of Stock'
+    ebay_sold = '$2,950 avg (last 3 sold)'
+    mpb = 'Used — $2,780'
 
     results = {
         'product_name': product_name,
@@ -36,31 +44,3 @@ def lookup():
     }
 
     return jsonify(results)
-
-
-def scrape_bh_by_mpn(mpn):
-    search_url = f"https://www.bhphotovideo.com/c/search?Ntt={mpn}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    response = requests.get(search_url, headers=headers)
-    soup = BeautifulSoup(response.text, "html.parser")
-    products = soup.select("div#gridContent div.itemWrapper_2As3T")
-
-    if not products:
-        return {'price': 'No match found', 'url': search_url}
-
-    for product in products[:3]:
-        link_tag = product.select_one("a[data-selenium='miniProductPageLink']")
-        if not link_tag:
-            continue
-        product_url = "https://www.bhphotovideo.com" + link_tag['href']
-        prod_resp = requests.get(product_url, headers=headers)
-        prod_soup = BeautifulSoup(prod_resp.text, "html.parser")
-
-        mfr_line = prod_soup.find(text=lambda t: t and "MFR #" in t)
-        if mfr_line and mpn.upper() in mfr_line:
-            price_tag = prod_soup.select_one(".price_1DPoToKrLP8uWvruGqgtaY")
-            price = price_tag.text.strip() if price_tag else "Price not listed"
-            stock_tag = prod_soup.find("div", string=lambda s: s and "In Stock" in s)
-            stock_status = "In Stock" if stock_tag else "Check availability"
-            return {
