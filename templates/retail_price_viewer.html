@@ -1,25 +1,73 @@
-<form onsubmit="return validateForm()">
-  <div class="form-group">
-    <label for="product">Product Name</label>
-    <input type="text" class="form-control" id="product" name="product" placeholder="e.g., Sony FX3" />
-  </div>
-  <div class="form-group">
-    <label for="mpn">MPN (Manufacturer Part Number)</label>
-    <input type="text" class="form-control" id="mpn" name="mpn" placeholder="e.g., ILMEFX3/B" />
-  </div>
-  <button type="submit" class="btn btn-primary btn-block mt-3">Check Prices</button>
-</form>
-
-<script>
-  function validateForm() {
-    const product = document.getElementById("product").value.trim();
-    const mpn = document.getElementById("mpn").value.trim();
-
-    if (!product && !mpn) {
-      alert("Please enter either a product name or MPN.");
-      return false;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lensrentals Product Verifier</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"/>
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Segoe UI', sans-serif;
     }
+    .container {
+      max-width: 600px;
+      margin-top: 60px;
+    }
+    .card {
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .card-title {
+      font-weight: 600;
+      font-size: 1.5rem;
+    }
+    .form-control {
+      border-radius: 8px;
+    }
+    .btn-primary {
+      background-color: #007bff;
+      border: none;
+      border-radius: 8px;
+      font-weight: 500;
+    }
+    .btn-primary:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="text-center mb-4">
+      <h2>🔍 Lensrentals Product Verifier</h2>
+    </div>
+    <div class="card p-4">
+      <form method="POST" onsubmit="return validateForm()">
+        <div class="form-group">
+          <label for="product">Product Name</label>
+          <input type="text" class="form-control" id="product" name="product" placeholder="e.g., Sony FX3" />
+        </div>
+        <div class="form-group">
+          <label for="mpn">MPN (Manufacturer Part Number)</label>
+          <input type="text" class="form-control" id="mpn" name="mpn" placeholder="e.g., ILMEFX3/B" />
+        </div>
+        <button type="submit" class="btn btn-primary btn-block mt-3">Check Prices</button>
+      </form>
+    </div>
+  </div>
 
-    return true;
-  }
-</script>
+  <script>
+    function validateForm() {
+      const product = document.getElementById("product").value.trim();
+      const mpn = document.getElementById("mpn").value.trim();
+
+      if (!product && !mpn) {
+        alert("Please enter either a product name or an MPN.");
+        return false;
+      }
+
+      return true;
+    }
+  </script>
+</body>
+</html>
