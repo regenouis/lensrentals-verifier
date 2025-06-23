@@ -1,73 +1,139 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Lensrentals Product Verifier</title>
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"/>
-  <style>
-    body {
-      background-color: #f8f9fa;
-      font-family: 'Segoe UI', sans-serif;
-    }
-    .container {
-      max-width: 600px;
-      margin-top: 60px;
-    }
-    .card {
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-    .card-title {
-      font-weight: 600;
-      font-size: 1.5rem;
-    }
-    .form-control {
-      border-radius: 8px;
-    }
-    .btn-primary {
-      background-color: #007bff;
-      border: none;
-      border-radius: 8px;
-      font-weight: 500;
-    }
-    .btn-primary:hover {
-      background-color: #0056b3;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Lensrentals Product Verifier</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 500px;
+        }
+
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        label {
+            font-weight: bold;
+            margin-top: 15px;
+            display: block;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 6px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        button {
+            margin-top: 20px;
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        #results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f1f1f1;
+            border-radius: 8px;
+            min-height: 50px;
+        }
+
+        .error {
+            color: #d9534f;
+            font-weight: bold;
+        }
+
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <div class="text-center mb-4">
-      <h2>🔍 Lensrentals Product Verifier</h2>
+    <div class="container">
+        <h1>🔍 Lensrentals Product Verifier</h1>
+        <label for="product">Product Name</label>
+        <input type="text" id="product" name="product" placeholder="e.g., Sony FX3">
+
+        <label for="mpn">MPN (Manufacturer Part Number)</label>
+        <input type="text" id="mpn" name="mpn" placeholder="e.g., ILMEFX3/B">
+
+        <button onclick="submitForm()">Check Prices</button>
+
+        <div id="results"></div>
     </div>
-    <div class="card p-4">
-      <form method="POST" onsubmit="return validateForm()">
-        <div class="form-group">
-          <label for="product">Product Name</label>
-          <input type="text" class="form-control" id="product" name="product" placeholder="e.g., Sony FX3" />
-        </div>
-        <div class="form-group">
-          <label for="mpn">MPN (Manufacturer Part Number)</label>
-          <input type="text" class="form-control" id="mpn" name="mpn" placeholder="e.g., ILMEFX3/B" />
-        </div>
-        <button type="submit" class="btn btn-primary btn-block mt-3">Check Prices</button>
-      </form>
-    </div>
-  </div>
 
-  <script>
-    function validateForm() {
-      const product = document.getElementById("product").value.trim();
-      const mpn = document.getElementById("mpn").value.trim();
+    <script>
+        async function submitForm() {
+            const product = document.getElementById("product").value.trim();
+            const mpn = document.getElementById("mpn").value.trim();
+            const results = document.getElementById("results");
 
-      if (!product && !mpn) {
-        alert("Please enter either a product name or an MPN.");
-        return false;
-      }
+            results.innerHTML = "Loading...";
 
-      return true;
-    }
-  </script>
+            if (!product && !mpn) {
+                results.innerHTML = `<div class="error">Please enter a product name or MPN.</div>`;
+                return;
+            }
+
+            try {
+                const response = await fetch("/lookup", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ product, mpn })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    results.innerHTML = `<div class="error">${data.error}</div>`;
+                } else if (data.status === "found") {
+                    results.innerHTML = `
+                        <div class="success">✅ Match found!</div>
+                        <p><strong>Used Price:</strong> ${data.used_price || "N/A"}</p>
+                        <p><strong>New Price:</strong> ${data.new_price || "N/A"}</p>
+                        <p><a href="${data.link}" target="_blank">🔗 View on B&H</a></p>
+                    `;
+                } else {
+                    results.innerHTML = `<div class="error">⚠️ No confident match found.</div>`;
+                }
+            } catch (err) {
+                results.innerHTML = `<div class="error">❌ Server error. Please try again later.</div>`;
+                console.error("Lookup error:", err);
+            }
+        }
+    </script>
 </body>
 </html>
