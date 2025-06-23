@@ -1,138 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
     <title>Lensrentals Product Verifier</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f7f7f7;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 40px;
-        }
-
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            width: 90%;
-            max-width: 500px;
-        }
-
-        h1 {
-            font-size: 1.8em;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        label {
-            font-weight: bold;
-            margin-top: 15px;
-            display: block;
-        }
-
-        input {
-            width: 100%;
-            padding: 10px;
-            margin-top: 6px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-        }
-
-        button {
-            margin-top: 20px;
-            width: 100%;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 1em;
-            cursor: pointer;
-        }
-
-        button:hover {
-            background-color: #0056b3;
-        }
-
-        #results {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f1f1f1;
-            border-radius: 8px;
-            min-height: 50px;
-        }
-
-        .error {
-            color: #d9534f;
-            font-weight: bold;
-        }
-
-        .success {
-            color: #28a745;
-            font-weight: bold;
-        }
+        body { font-family: sans-serif; background: #f7f7f7; text-align: center; }
+        .container { margin: 50px auto; padding: 20px; background: #fff; width: 400px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        input, button { width: 90%; margin: 10px 0; padding: 10px; font-size: 16px; }
+        .results { margin-top: 20px; text-align: left; }
+        .status-ok { color: green; }
+        .status-fail { color: red; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🔍 Lensrentals Product Verifier</h1>
-        <label for="product">Product Name</label>
-        <input type="text" id="product" name="product" placeholder="e.g., Sony FX3">
-
-        <label for="mpn">MPN (Manufacturer Part Number)</label>
-        <input type="text" id="mpn" name="mpn" placeholder="e.g., ILMEFX3/B">
-
-        <button onclick="submitForm()">Check Prices</button>
-
-        <div id="results"></div>
+        <input type="text" id="product" placeholder="e.g., Sony FX3">
+        <input type="text" id="mpn" placeholder="e.g., ILMEFX3/B">
+        <button onclick="checkPrices()">Check Prices</button>
+        <div class="results" id="results"></div>
     </div>
 
     <script>
-        async function submitForm() {
+        async function checkPrices() {
             const product = document.getElementById("product").value.trim();
             const mpn = document.getElementById("mpn").value.trim();
-            const results = document.getElementById("results");
-
-            results.innerHTML = "Loading...";
 
             if (!product && !mpn) {
-                results.innerHTML = `<div class="error">Please enter a product name or MPN.</div>`;
+                document.getElementById("results").innerHTML = `<p class="status-fail">Please enter at least a Product Name or MPN.</p>`;
                 return;
             }
 
-            try {
-                const response = await fetch("/lookup", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ product, mpn })
-                });
+            const query = new URLSearchParams({ product, mpn }).toString();
+            const res = await fetch(`/lookup?${query}`);
+            const data = await res.json();
 
-                const data = await response.json();
-
-                if (data.error) {
-                    results.innerHTML = `<div class="error">${data.error}</div>`;
-                } else if (data.status === "found") {
-                    results.innerHTML = `
-                        <div class="success">✅ Match found!</div>
-                        <p><strong>Used Price:</strong> ${data.used_price || "N/A"}</p>
-                        <p><strong>New Price:</strong> ${data.new_price || "N/A"}</p>
-                        <p><a href="${data.link}" target="_blank">🔗 View on B&H</a></p>
-                    `;
-                } else {
-                    results.innerHTML = `<div class="error">⚠️ No confident match found.</div>`;
-                }
-            } catch (err) {
-                results.innerHTML = `<div class="error">❌ Server error. Please try again later.</div>`;
-                console.error("Lookup error:", err);
+            if (data.error) {
+                document.getElementById("results").innerHTML = `<p class="status-fail">${data.error}</p>`;
+                return;
             }
+
+            const bh = data.bh;
+            const resultHtml = `
+                <h3>B&H Results</h3>
+                <p>Status: <strong class="status-ok">${bh.status}</strong></p>
+                <p>New Price: ${bh.new_price}</p>
+                <p>Used Price: ${bh.used_price}</p>
+                <p><a href="${bh.link}" target="_blank">View Listing</a></p>
+            `;
+
+            document.getElementById("results").innerHTML = resultHtml;
         }
     </script>
 </body>
