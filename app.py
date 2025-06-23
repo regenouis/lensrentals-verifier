@@ -1,56 +1,34 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-import requests
-from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 CORS(app)
 
-@app.route("/")
+@app.route('/')
 def home():
-    return "Lensrentals Product Verifier backend is live."
+    return render_template('retail_price_viewer.html')
 
-@app.route("/lookup", methods=["POST"])
+@app.route('/lookup', methods=['POST'])
 def lookup():
-    data = request.get_json(force=True)
+    data = request.get_json()
 
-    product_name = data.get("product", "").strip()
-    mpn = data.get("mpn", "").strip()
+    if not data:
+        return jsonify({'error': 'No JSON payload received'}), 400
 
-    bh_result = get_bh_data(product_name, mpn)
+    product_name = data.get('product_name', '').strip()
+    mpn = data.get('mpn', '').strip()
 
-    return jsonify({"bh": bh_result})
+    if not product_name or not mpn:
+        return jsonify({'error': 'Both product name and MPN are required'}), 400
 
-def get_bh_data(product_name, mpn):
-    search_url = f"https://www.bhphotovideo.com/c/search?Ntt={mpn}&N=0&InitialSearch=yes&sts=ma"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
+    # Dummy simulated results (replace with real scraping logic later)
+    results = {
+        'product_name': product_name,
+        'mpn': mpn,
+        'bh_photo': 'In Stock — $3,199.99',
+        'adorama': 'Out of Stock',
+        'ebay_sold': '$2,950 avg (last 3 sold)',
+        'mpb': 'Used — $2,780'
     }
 
-    try:
-        response = requests.get(search_url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        # Look for matching product tiles
-        tiles = soup.select(".item-details")
-        for tile in tiles:
-            title = tile.get_text(strip=True).lower()
-            if mpn.lower() in title or product_name.lower() in title:
-                return {
-                    "status": "Confident match found",
-                    "search_url": search_url
-                }
-
-        return {
-            "status": "No confident match",
-            "search_url": search_url
-        }
-
-    except Exception as e:
-        return {
-            "status": f"Error: {str(e)}",
-            "search_url": search_url
-        }
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    return jsonify(results)
