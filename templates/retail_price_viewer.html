@@ -1,53 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Lensrentals Product Verifier</title>
+    <meta charset="UTF-8">
+    <title>Lensrentals Product Verifier</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f9fb;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 400px;
+        }
+
+        input, button {
+            width: 100%;
+            margin-top: 1rem;
+            padding: 0.75rem;
+            font-size: 1rem;
+        }
+
+        #results {
+            margin-top: 2rem;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+    </style>
 </head>
 <body>
-  <h1>🔍 Lensrentals Product Verifier</h1>
-  
-  <form id="verify-form">
-    <label for="product">Product Name</label>
-    <input type="text" id="product" name="product" placeholder="e.g., Canon RF 50mm f/1.2L" />
+    <div class="container">
+        <h2>🔍 Lensrentals Product Verifier</h2>
+        <input type="text" id="productName" placeholder="e.g., Sony FX3">
+        <input type="text" id="mpn" placeholder="e.g., ILMEFX3/B">
+        <button onclick="checkPrices()">Check Prices</button>
+        <div id="results"></div>
+    </div>
 
-    <label for="mpn">MPN (Manufacturer Part Number)</label>
-    <input type="text" id="mpn" name="mpn" placeholder="e.g., ILMEFX3/B" />
+    <script>
+        async function checkPrices() {
+            const productName = document.getElementById("productName").value;
+            const mpn = document.getElementById("mpn").value;
 
-    <button type="submit">Check Prices</button>
-  </form>
+            const response = await fetch("/lookup", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ product_name: productName, mpn: mpn })
+            });
 
-  <div id="results"></div>
+            const resultDiv = document.getElementById("results");
 
-  <script>
-    const form = document.getElementById('verify-form');
-    const resultsDiv = document.getElementById('results');
+            if (!response.ok) {
+                const error = await response.json();
+                resultDiv.innerText = "Error: " + (error.error || "Unknown issue");
+                return;
+            }
 
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-
-      const product = document.getElementById('product').value.trim();
-      const mpn = document.getElementById('mpn').value.trim();
-
-      const payload = { product, mpn };
-
-      try {
-        const response = await fetch('https://verifier-backend-met4.onrender.com/lookup', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        const data = await response.json();
-
-        resultsDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-      } catch (error) {
-        resultsDiv.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
-      }
-    });
-  </script>
+            const data = await response.json();
+            resultDiv.innerText = JSON.stringify(data, null, 2);
+        }
+    </script>
 </body>
 </html>
