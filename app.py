@@ -6,58 +6,51 @@ from bs4 import BeautifulSoup
 app = Flask(__name__)
 CORS(app)
 
-@app.route("/", methods=["GET"])
+@app.route("/")
 def home():
     return "Lensrentals Product Verifier backend is live."
 
 @app.route("/lookup", methods=["POST"])
 def lookup():
-    data = request.get_json()
+    data = request.get_json(force=True)
+
     product_name = data.get("product", "").strip()
     mpn = data.get("mpn", "").strip()
 
-    if not product_name and not mpn:
-        return jsonify({"error": "Either product name or MPN is required."}), 400
+    bh_result = get_bh_data(product_name, mpn)
 
-    search_terms = mpn if mpn else product_name
-    search_url = f"https://www.bhphotovideo.com/c/search?q={requests.utils.quote(search_terms)}&sts=ma"
+    return jsonify({"bh": bh_result})
 
+def get_bh_data(product_name, mpn):
+    search_url = f"https://www.bhphotovideo.com/c/search?Ntt={mpn}&N=0&InitialSearch=yes&sts=ma"
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
 
     try:
-        response = requests.get(search_url, headers=headers)
+        response = requests.get(search_url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        tiles = soup.select(".item")
-
-        confident_match = False
+        # Look for matching product tiles
+        tiles = soup.select(".item-details")
         for tile in tiles:
-            title = tile.select_one(".itemDescription")
-            specs = tile.select_one(".item-specs")
-            if not title:
-                continue
+            title = tile.get_text(strip=True).lower()
+            if mpn.lower() in title or product_name.lower() in title:
+                return {
+                    "status": "Confident match found",
+                    "search_url": search_url
+                }
 
-            title_text = title.get_text(strip=True)
-            specs_text = specs.get_text(strip=True) if specs else ""
-
-            if mpn and mpn.lower() in specs_text.lower():
-                confident_match = True
-                break
-            elif product_name and product_name.lower() in title_text.lower():
-                confident_match = True
-                break
-
-        bh_result = {
-            "status": "✅ Confident match found" if confident_match else "⚠️ No confident match",
+        return {
+            "status": "No confident match",
             "search_url": search_url
         }
 
-        return jsonify({"bh": bh_result})
-
     except Exception as e:
-        return jsonify({"error": f"Failed to scrape B&H: {str(e)}"}), 500
+        return {
+            "status": f"Error: {str(e)}",
+            "search_url": search_url
+        }
 
 if __name__ == "__main__":
     app.run(debug=True)
