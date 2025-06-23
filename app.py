@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, render_template
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -10,25 +10,30 @@ def home():
 
 @app.route('/lookup', methods=['POST'])
 def lookup():
-    data = request.get_json()
+    product_name = request.form.get('product_name', '').strip()
+    mpn = request.form.get('mpn', '').strip()
 
-    if not data:
-        return jsonify({'error': 'No JSON payload received'}), 400
+    if not product_name:
+        return render_template('retail_price_viewer.html', error="Product name is required.")
 
-    product_name = data.get('product_name', '').strip()
-    mpn = data.get('mpn', '').strip()
-
-    if not product_name or not mpn:
-        return jsonify({'error': 'Both product name and MPN are required'}), 400
-
-    # Dummy simulated results (replace with real scraping logic later)
+    # Simulated results — replace with your scraper logic
     results = {
-        'product_name': product_name,
-        'mpn': mpn,
-        'bh_photo': 'In Stock — $3,199.99',
-        'adorama': 'Out of Stock',
-        'ebay_sold': '$2,950 avg (last 3 sold)',
-        'mpb': 'Used — $2,780'
+        'B&H Photo': {
+            'price': 'In Stock — $3,199.99',
+            'url': 'https://www.bhphotovideo.com/'
+        },
+        'Adorama': {
+            'price': 'Out of Stock',
+            'url': 'https://www.adorama.com/'
+        },
+        'eBay Sold': {
+            'price': '$2,950 avg (last 3 sold)',
+            'url': 'https://www.ebay.com/'
+        },
+        'MPB': {
+            'price': 'Used — $2,780',
+            'url': 'https://www.mpb.com/'
+        }
     }
 
-    return jsonify(results)
+    return render_template('retail_price_viewer.html', results=results)
