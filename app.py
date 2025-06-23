@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request
+from urllib.parse import quote_plus
 
 app = Flask(__name__)
 
@@ -8,16 +9,20 @@ def index():
 
 @app.route('/lookup', methods=['POST'])
 def lookup():
-    product_name = request.form.get('product_name', '')
-    mpn = request.form.get('mpn', '')
+    product_name = request.form.get('product_name', '').strip()
+    mpn = request.form.get('mpn', '').strip()
 
-    # Dummy result logic (replace with your real logic)
+    # Prioritize MPN if provided, else fallback to product name
+    query = quote_plus(mpn if mpn else product_name)
+    bh_url = f"https://www.bhphotovideo.com/c/search?Ntt={query}&N=0&InitialSearch=yes"
+
+    # Example result structure
     results = {
         "B&H": {
             "status": "Found",
             "new_price": "$2,495",
             "used_price": "$2,199",
-            "link": "https://www.bhphotovideo.com/"
+            "link": bh_url
         },
         "eBay": {
             "status": "No results",
