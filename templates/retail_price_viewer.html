@@ -1,56 +1,111 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Lensrentals Product Verifier</title>
-    <style>
-        body { font-family: sans-serif; background: #f7f7f7; text-align: center; }
-        .container { margin: 50px auto; padding: 20px; background: #fff; width: 400px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        input, button { width: 90%; margin: 10px 0; padding: 10px; font-size: 16px; }
-        .results { margin-top: 20px; text-align: left; }
-        .status-ok { color: green; }
-        .status-fail { color: red; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lensrentals Product Verifier</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background-color: #f7f7f7;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: 10px;
+      max-width: 600px;
+      margin: auto;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      font-size: 1rem;
+    }
+
+    button {
+      padding: 0.75rem 2rem;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      font-size: 1rem;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .results {
+      margin-top: 2rem;
+      text-align: left;
+    }
+
+    .retailer {
+      padding: 1rem;
+      background: #f1f1f1;
+      margin: 0.5rem 0;
+      border-radius: 5px;
+    }
+
+    .retailer a {
+      color: #007bff;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🔍 Lensrentals Product Verifier</h1>
-        <input type="text" id="product" placeholder="e.g., Sony FX3">
-        <input type="text" id="mpn" placeholder="e.g., ILMEFX3/B">
-        <button onclick="checkPrices()">Check Prices</button>
-        <div class="results" id="results"></div>
+  <div class="container">
+    <h1>🔍 Lensrentals Product Verifier</h1>
+    <form id="productForm">
+      <label for="productName">Product Name</label>
+      <input type="text" id="productName" name="productName" placeholder="e.g., Sony FX3" />
+
+      <label for="mpn">MPN (Manufacturer Part Number)</label>
+      <input type="text" id="mpn" name="mpn" placeholder="e.g., ILMEFX3/B" />
+
+      <button id="checkBtn">Check Prices</button>
+    </form>
+
+    <div class="results">
+      <h2>📦 Retailer Results</h2>
+      <div class="retailer" id="bhResult">B&H: <span id="bhStatus">Waiting...</span></div>
+      <div class="retailer">Adorama: 🔧 Coming soon</div>
+      <div class="retailer">eBay: 🔧 Coming soon</div>
+      <div class="retailer">MPB: 🔧 Coming soon</div>
     </div>
+  </div>
 
-    <script>
-        async function checkPrices() {
-            const product = document.getElementById("product").value.trim();
-            const mpn = document.getElementById("mpn").value.trim();
+  <script>
+    document.getElementById("productForm").addEventListener("submit", function(event) {
+      event.preventDefault();
 
-            if (!product && !mpn) {
-                document.getElementById("results").innerHTML = `<p class="status-fail">Please enter at least a Product Name or MPN.</p>`;
-                return;
-            }
+      const productName = document.getElementById("productName").value.trim();
+      const mpn = document.getElementById("mpn").value.trim();
 
-            const query = new URLSearchParams({ product, mpn }).toString();
-            const res = await fetch(`/lookup?${query}`);
-            const data = await res.json();
-
-            if (data.error) {
-                document.getElementById("results").innerHTML = `<p class="status-fail">${data.error}</p>`;
-                return;
-            }
-
-            const bh = data.bh;
-            const resultHtml = `
-                <h3>B&H Results</h3>
-                <p>Status: <strong class="status-ok">${bh.status}</strong></p>
-                <p>New Price: ${bh.new_price}</p>
-                <p>Used Price: ${bh.used_price}</p>
-                <p><a href="${bh.link}" target="_blank">View Listing</a></p>
-            `;
-
-            document.getElementById("results").innerHTML = resultHtml;
-        }
-    </script>
+      fetch("https://verifier-backend-met4.onrender.com/lookup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          product: productName,
+          mpn: mpn
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        const bhStatus = data.bh?.status || "No confident match";
+        const bhLink = data.bh?.search_url || "#";
+        const icon = bhStatus.includes("No confident") ? "🟡" : "✅";
+        document.getElementById("bhStatus").innerHTML = `${icon} <a href="${bhLink}" target="_blank">${bhStatus}</a>`;
+      })
+      .catch(error => {
+        document.getElementById("bhStatus").innerText = "❌ Error contacting server";
+        console.error("Error:", error);
+      });
+    });
+  </script>
 </body>
 </html>
