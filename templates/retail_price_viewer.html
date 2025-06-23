@@ -9,9 +9,9 @@
     <div class="container">
         <h1>🔍 Lensrentals Product Verifier</h1>
         <form method="post" action="/lookup">
-            <input type="text" name="product_name" placeholder="e.g., Sony FX3" value="{{ request.form.product_name or '' }}" required>
-            <input type="text" name="mpn" placeholder="e.g., ILMEFX3/B" value="{{ request.form.mpn or '' }}">
-            <small style="color: gray;">MPN improves accuracy but isn't required.</small><br><br>
+            <input type="text" name="product_name" placeholder="e.g., Sony FX3" value="{{ request.form.get('product_name', '') }}">
+            <input type="text" name="mpn" placeholder="e.g., ILMEFX3/B" value="{{ request.form.get('mpn', '') }}">
+            <small style="color: gray;">Enter a product name or MPN — one is required.</small><br><br>
             <button type="submit">Check Prices</button>
         </form>
 
