@@ -4,15 +4,21 @@
     <meta charset="UTF-8">
     <title>Lensrentals Product Verifier</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script>
+        function resetForm() {
+            document.getElementById('verifier-form').reset();
+        }
+    </script>
 </head>
 <body>
     <div class="container">
         <h1>🔍 Lensrentals Product Verifier</h1>
-        <form method="post" action="/lookup">
-            <input type="text" name="product_name" placeholder="e.g., Sony FX3" value="{{ request.form.get('product_name', '') }}">
-            <input type="text" name="mpn" placeholder="e.g., ILMEFX3/B" value="{{ request.form.get('mpn', '') }}">
+        <form method="post" action="/lookup" id="verifier-form">
+            <input type="text" name="product_name" placeholder="e.g., Sony FX3" value="{{ request.form.get('product_name') if request.method == 'POST' else '' }}">
+            <input type="text" name="mpn" placeholder="e.g., ILMEFX3/B" value="{{ request.form.get('mpn') if request.method == 'POST' else '' }}">
             <small style="color: gray;">Enter a product name or MPN — one is required.</small><br><br>
             <button type="submit">Check Prices</button>
+            <button type="button" onclick="resetForm()">Reset</button>
         </form>
 
         {% if error %}
