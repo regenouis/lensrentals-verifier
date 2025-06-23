@@ -1,83 +1,89 @@
-from flask import Flask, render_template, request
-from urllib.parse import quote_plus
-from bs4 import BeautifulSoup
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import requests
-from difflib import SequenceMatcher
+from bs4 import BeautifulSoup
+import difflib
 
 app = Flask(__name__)
+CORS(app)
 
-def similarity(a, b):
-    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
-
-def fetch_bh_tiles(product_name, mpn=None, max_results=5):
-    query = mpn or product_name
-    search_url = f"https://www.bhphotovideo.com/c/search?q={quote_plus(query)}"
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
+# ---------- Utility: B&H Scraper ----------
+def scrape_bh(product_name=None, mpn=None):
     try:
-        response = requests.get(search_url, headers=headers, timeout=15)
+        if mpn:
+            search_url = f"https://www.bhphotovideo.com/c/search?Ntt={mpn}"
+        elif product_name:
+            search_url = f"https://www.bhphotovideo.com/c/search?Ntt={product_name}"
+        else:
+            return {"status": "error", "error": "Missing product or MPN"}
+
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(search_url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        product_tiles = soup.select("div[data-selenium='miniProductPage']")
+        if not product_tiles:
+            return {"status": "not_found"}
+
+        best_match = None
+        highest_ratio = 0
+
+        for tile in product_tiles:
+            title_tag = tile.select_one("span[data-selenium='miniProductPageProductName']")
+            link_tag = tile.select_one("a[data-selenium='miniProductPageProductNameLink']")
+            if not title_tag or not link_tag:
+                continue
+
+            title = title_tag.text.strip()
+            link = "https://www.bhphotovideo.com" + link_tag.get("href", "")
+
+            if mpn and mpn.lower() in title.lower():
+                best_match = tile
+                break
+
+            if product_name:
+                ratio = difflib.SequenceMatcher(None, title.lower(), product_name.lower()).ratio()
+                if ratio > highest_ratio:
+                    highest_ratio = ratio
+                    best_match = tile if ratio > 0.5 else None  # Confidence threshold
+
+        if not best_match:
+            return {"status": "not_found"}
+
+        used_price_tag = best_match.select_one("span[data-selenium='usedPrice']")
+        new_price_tag = best_match.select_one("span[data-selenium='price']")
+
+        used_price = used_price_tag.text.strip() if used_price_tag else None
+        new_price = new_price_tag.text.strip() if new_price_tag else None
+
+        return {
+            "status": "found",
+            "used_price": used_price,
+            "new_price": new_price,
+            "link": link
+        }
+
     except Exception as e:
-        return {"status": "❌ Error fetching B&H", "error": str(e)}
+        return {"status": "error", "error": str(e)}
 
-    soup = BeautifulSoup(response.text, 'html.parser')
-    tiles = soup.select("div[data-selenium='miniProductPage']")[:max_results]
-
-    results = []
-    for tile in tiles:
-        title_tag = tile.select_one("span[data-selenium='miniProductPageProductName']")
-        price_tag = tile.select_one("span[data-selenium='uppedDecimalPrice']") or tile.select_one("span[data-selenium='pricingPrice']")
-        link_tag = tile.select_one("a[href]")
-
-        title = title_tag.text.strip() if title_tag else "N/A"
-        price = price_tag.text.strip() if price_tag else "N/A"
-        link = f"https://www.bhphotovideo.com{link_tag['href']}" if link_tag else "N/A"
-
-        score = similarity(title, mpn) if mpn else similarity(title, product_name)
-
-        results.append({
-            "title": title,
-            "price": price,
-            "link": link,
-            "score": score
-        })
-
-    best = max(results, key=lambda r: r['score'], default=None)
-    if best and best['score'] >= 0.75:
-        return {
-            "status": "🟢 Found",
-            "title": best['title'],
-            "price": best['price'],
-            "link": best['link']
-        }
-    else:
-        return {
-            "status": "🟡 No confident match",
-            "alternatives": results,
-            "search_link": search_url
-        }
-
-@app.route('/')
-def index():
-    return render_template('retail_price_viewer.html')
-
-@app.route('/lookup', methods=['POST'])
+# ---------- Main Lookup Route ----------
+@app.route("/lookup", methods=["POST"])
 def lookup():
-    product_name = request.form.get('product_name', '').strip()
-    mpn = request.form.get('mpn', '').strip()
+    data = request.get_json()
+    product = data.get("product", "").strip()
+    mpn = data.get("mpn", "").strip()
 
-    results = {}
+    if not product and not mpn:
+        return jsonify({"error": "Please provide at least a product name or MPN"}), 400
 
-    if product_name or mpn:
-        bh_result = fetch_bh_tiles(product_name, mpn)
-        results["B&H"] = bh_result
+    bh_result = scrape_bh(product_name=product, mpn=mpn)
 
-        # Placeholders for future retailer integrations
-        results["Adorama"] = {"status": "🔧 Coming soon"}
-        results["eBay"] = {"status": "🔧 Coming soon"}
-        results["MPB"] = {"status": "🔧 Coming soon"}
-    else:
-        results["error"] = "Please enter a product name or MPN."
+    return jsonify(bh_result)
 
-    return render_template("retail_price_viewer.html", results=results)
+# ---------- Default route (optional) ----------
+@app.route("/")
+def index():
+    return "Retail Price Verifier API is live."
+
+if __name__ == "__main__":
+    app.run(debug=True)
