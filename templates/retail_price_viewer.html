@@ -2,69 +2,102 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lensrentals Product Verifier</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
   <style>
-    body { font-family: sans-serif; padding: 2rem; }
-    input, button { margin: 0.5rem 0; padding: 0.5rem; font-size: 1rem; }
-    .summary a { color: #007BFF; text-decoration: none; }
+    body { padding: 2rem; font-family: 'Segoe UI', sans-serif; }
+    .input-group-text { width: 100px; }
+    .results { margin-top: 1.5rem; }
+    .reset-btn { margin-left: 0.5rem; }
   </style>
 </head>
-<body onload="resetFields()">
-  <h2>🔍 Lensrentals Product Verifier</h2>
-  <form id="lookupForm">
-    <input type="text" id="productName" placeholder="e.g., Sony FX3" />
-    <br />
-    <input type="text" id="mpn" placeholder="e.g., ILME-FX3" />
-    <span>Enter a product name or MPN — one is required.</span>
-    <br />
-    <button type="submit">Check Prices</button>
-    <button type="button" onclick="resetFields()">Reset</button>
-  </form>
+<body>
+  <div class="container">
+    <h3>🔍 Lensrentals Product Verifier</h3>
 
-  <div id="results" class="summary" style="margin-top: 2rem;"></div>
+    <form id="lookupForm">
+      <input type="text" id="name" name="name" class="form-control mb-2" placeholder="e.g., Sony FX3" />
+      <input type="text" id="mpn" name="mpn" class="form-control mb-2" placeholder="e.g., ILME-FX3" />
+      <small class="form-text text-muted">Enter a product name or MPN — one is required.</small>
+      <button type="submit" class="btn btn-primary mt-2">Check Prices</button>
+      <button type="button" class="btn btn-secondary mt-2 reset-btn" id="resetBtn">Reset</button>
+    </form>
+
+    <div class="results" id="results" style="display:none;">
+      <h5>🔗 Pricing Summary</h5>
+      <ul id="summaryList" class="list-unstyled"></ul>
+    </div>
+  </div>
 
   <script>
-    function resetFields() {
-      document.getElementById('productName').value = '';
-      document.getElementById('mpn').value = '';
-      document.getElementById('results').innerHTML = '';
+    const form = document.getElementById('lookupForm');
+    const resetBtn = document.getElementById('resetBtn');
+    const nameInput = document.getElementById('name');
+    const mpnInput = document.getElementById('mpn');
+    const resultsDiv = document.getElementById('results');
+    const summaryList = document.getElementById('summaryList');
+
+    function resetForm() {
+      form.reset();
+      resultsDiv.style.display = 'none';
+      summaryList.innerHTML = '';
     }
 
-    document.getElementById('lookupForm').addEventListener('submit', async function(e) {
+    function formatItem(label, data) {
+      if (!data) return `<li><strong>${label}:</strong> Not available</li>`;
+      if (data.link) {
+        return `<li><strong>${label}:</strong> <a href="${data.link}" target="_blank">${data.status} — ${data.price}</a>${data.warning ? ' <span style="color:red;">' + data.warning + '</span>' : ''}</li>`;
+      }
+      if (data.status && data.price) {
+        return `<li><strong>${label}:</strong> ${data.status} — ${data.price}</li>`;
+      }
+      return `<li><strong>${label}:</strong> ${data.price || data.status}</li>`;
+    }
+
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const name = nameInput.value.trim();
+      const mpn = mpnInput.value.trim();
 
-      const product_name = document.getElementById('productName').value.trim();
-      const mpn = document.getElementById('mpn').value.trim();
-
-      if (!product_name && !mpn) {
-        alert("Please enter either a product name or MPN.");
+      if (!name && !mpn) {
+        alert("Please enter a product name or MPN.");
         return;
       }
 
-      const response = await fetch('/lookup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ product_name, mpn })
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("mpn", mpn);
+
+      const res = await fetch("/lookup", {
+        method: "POST",
+        body: formData
       });
 
-      const data = await response.json();
-
+      const data = await res.json();
       if (data.error) {
-        document.getElementById('results').innerHTML = `<p style="color:red;">${data.error}</p>`;
+        alert(data.error);
         return;
       }
 
-      document.getElementById('results').innerHTML = `
-        <h3>🧷 Pricing Summary</h3>
-        <p><strong>B&H Photo:</strong> ${data.bh_photo}</p>
-        <p><strong>Adorama:</strong> ${data.adorama}</p>
-        <p><strong>eBay Sold:</strong> ${data.ebay_sold}</p>
-        <p><strong>MPB:</strong> ${data.mpb}</p>
-      `;
+      summaryList.innerHTML = '';
+      summaryList.innerHTML += formatItem("B&H Photo", data.bh);
+      summaryList.innerHTML += `<li><strong>Adorama:</strong> ${data.adorama.status}</li>`;
+      summaryList.innerHTML += `<li><strong>eBay Sold:</strong> ${data.ebay.price}</li>`;
+      summaryList.innerHTML += `<li><strong>MPB:</strong> ${data.mpb.price}</li>`;
+      resultsDiv.style.display = 'block';
     });
+
+    resetBtn.addEventListener('click', resetForm);
+
+    [nameInput, mpnInput].forEach(field => {
+      field.addEventListener('input', () => {
+        if (!nameInput.value.trim() && !mpnInput.value.trim()) {
+          resetForm();
+        }
+      });
+    });
+
+    window.addEventListener('load', resetForm);
   </script>
 </body>
 </html>
