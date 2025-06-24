@@ -1,103 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Lensrentals Product Verifier</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
   <style>
-    body { padding: 2rem; font-family: 'Segoe UI', sans-serif; }
-    .input-group-text { width: 100px; }
-    .results { margin-top: 1.5rem; }
-    .reset-btn { margin-left: 0.5rem; }
+    body { padding: 2rem; background: #f9f9f9; }
+    .container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .title-icon { font-size: 1.5rem; margin-right: 0.5rem; }
+    .price-summary a { font-weight: bold; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h3>🔍 Lensrentals Product Verifier</h3>
+    <h3><span class="title-icon">🔍</span>Lensrentals Product Verifier</h3>
 
-    <form id="lookupForm">
-      <input type="text" id="name" name="name" class="form-control mb-2" placeholder="e.g., Sony FX3" />
-      <input type="text" id="mpn" name="mpn" class="form-control mb-2" placeholder="e.g., ILME-FX3" />
-      <small class="form-text text-muted">Enter a product name or MPN — one is required.</small>
-      <button type="submit" class="btn btn-primary mt-2">Check Prices</button>
-      <button type="button" class="btn btn-secondary mt-2 reset-btn" id="resetBtn">Reset</button>
-    </form>
+    <div class="form-row my-3">
+      <div class="col-md-6 mb-2">
+        <input id="name" class="form-control" type="text" placeholder="e.g., Sony FX3" autocomplete="off">
+      </div>
+      <div class="col-md-6 mb-2">
+        <input id="mpn" class="form-control" type="text" placeholder="e.g., ILME-FX3A" autocomplete="off">
+      </div>
+    </div>
+    <small class="text-muted mb-3 d-block">Enter a product name or MPN — one is required.</small>
 
-    <div class="results" id="results" style="display:none;">
-      <h5>🔗 Pricing Summary</h5>
-      <ul id="summaryList" class="list-unstyled"></ul>
+    <div class="mb-3">
+      <button id="checkBtn" class="btn btn-primary">Check Prices</button>
+      <button id="resetBtn" class="btn btn-secondary">Reset</button>
+    </div>
+
+    <div id="error" class="text-danger mb-2"></div>
+
+    <h5>📎 Pricing Summary</h5>
+    <div id="results" class="price-summary">
+      <p><strong>B&H Photo:</strong> <span id="bhResult">—</span></p>
+      <p><strong>Adorama:</strong> <span id="adoramaResult">—</span></p>
+      <p><strong>eBay Sold:</strong> <span id="ebayResult">—</span></p>
+      <p><strong>MPB:</strong> <span id="mpbResult">—</span></p>
     </div>
   </div>
 
   <script>
-    const form = document.getElementById('lookupForm');
-    const resetBtn = document.getElementById('resetBtn');
-    const nameInput = document.getElementById('name');
-    const mpnInput = document.getElementById('mpn');
-    const resultsDiv = document.getElementById('results');
-    const summaryList = document.getElementById('summaryList');
-
-    function resetForm() {
-      form.reset();
-      resultsDiv.style.display = 'none';
-      summaryList.innerHTML = '';
-    }
-
-    function formatItem(label, data) {
-      if (!data) return `<li><strong>${label}:</strong> Not available</li>`;
-      if (data.link) {
-        return `<li><strong>${label}:</strong> <a href="${data.link}" target="_blank">${data.status} — ${data.price}</a>${data.warning ? ' <span style="color:red;">' + data.warning + '</span>' : ''}</li>`;
-      }
-      if (data.status && data.price) {
-        return `<li><strong>${label}:</strong> ${data.status} — ${data.price}</li>`;
-      }
-      return `<li><strong>${label}:</strong> ${data.price || data.status}</li>`;
-    }
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = nameInput.value.trim();
-      const mpn = mpnInput.value.trim();
+    document.getElementById('checkBtn').addEventListener('click', async () => {
+      const name = document.getElementById('name').value.trim();
+      const mpn = document.getElementById('mpn').value.trim();
+      const errorEl = document.getElementById('error');
+      errorEl.textContent = '';
 
       if (!name && !mpn) {
-        alert("Please enter a product name or MPN.");
+        errorEl.textContent = 'Please enter a product name or MPN.';
         return;
       }
 
-      const formData = new FormData();
-      formData.append("name", name);
-      formData.append("mpn", mpn);
-
-      const res = await fetch("/lookup", {
-        method: "POST",
-        body: formData
+      const res = await fetch('/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, mpn })
       });
 
       const data = await res.json();
-      if (data.error) {
-        alert(data.error);
-        return;
-      }
 
-      summaryList.innerHTML = '';
-      summaryList.innerHTML += formatItem("B&H Photo", data.bh);
-      summaryList.innerHTML += `<li><strong>Adorama:</strong> ${data.adorama.status}</li>`;
-      summaryList.innerHTML += `<li><strong>eBay Sold:</strong> ${data.ebay.price}</li>`;
-      summaryList.innerHTML += `<li><strong>MPB:</strong> ${data.mpb.price}</li>`;
-      resultsDiv.style.display = 'block';
+      document.getElementById('bhResult').innerHTML =
+        data.bh?.status === 'In Stock'
+        ? `<a href="${data.bh.url}" target="_blank">${data.bh.status} — ${data.bh.price}${data.bh.used_price ? ' (Used: ' + data.bh.used_price + ')' : ''}</a>`
+        : data.bh?.status || '—';
+
+      document.getElementById('adoramaResult').innerHTML =
+        data.adorama?.status || '—';
+
+      document.getElementById('ebayResult').innerHTML =
+        data.ebay?.price
+        ? `<a href="${data.ebay.url}" target="_blank">${data.ebay.price}</a>`
+        : '—';
+
+      document.getElementById('mpbResult').innerHTML =
+        data.mpb?.price
+        ? `<a href="${data.mpb.url}" target="_blank">${data.mpb.status} — ${data.mpb.price}</a>`
+        : '—';
     });
 
-    resetBtn.addEventListener('click', resetForm);
-
-    [nameInput, mpnInput].forEach(field => {
-      field.addEventListener('input', () => {
-        if (!nameInput.value.trim() && !mpnInput.value.trim()) {
-          resetForm();
-        }
-      });
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      document.getElementById('name').value = '';
+      document.getElementById('mpn').value = '';
+      document.getElementById('error').textContent = '';
+      document.getElementById('bhResult').textContent = '—';
+      document.getElementById('adoramaResult').textContent = '—';
+      document.getElementById('ebayResult').textContent = '—';
+      document.getElementById('mpbResult').textContent = '—';
     });
 
-    window.addEventListener('load', resetForm);
+    // Clear old autofilled input values on refresh
+    window.addEventListener('pageshow', () => {
+      document.getElementById('name').value = '';
+      document.getElementById('mpn').value = '';
+    });
   </script>
 </body>
 </html>
