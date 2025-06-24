@@ -1,73 +1,70 @@
-from flask import Flask, render_template, request
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import quote_plus
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Lensrentals Product Verifier</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script>
+        function resetForm() {
+            const form = document.getElementById("productForm");
+            form.reset();
+            document.getElementById("name").value = "";
+            document.getElementById("mpn").value = "";
+        }
 
-app = Flask(__name__)
-
-def scrape_bh_photo(product_name, mpn):
-    search_url = f"https://www.bhphotovideo.com/c/search?Ntt={quote_plus(mpn)}"
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    try:
-        res = requests.get(search_url, headers=headers, timeout=10)
-        res.raise_for_status()
-        soup = BeautifulSoup(res.text, "html.parser")
-
-        listings = soup.select(".item_block")
-        for item in listings:
-            mpn_tag = item.select_one(".item_mpn, .item-sku span")
-            if mpn_tag and mpn in mpn_tag.text:
-                price_tag = item.select_one(".price_1DPoToKrLP8uWvruGqgtaY")
-                used_tag = item.select_one(".usedPrice")
-                link_tag = item.find("a", href=True)
-
-                price = price_tag.text.strip() if price_tag else "No price listed"
-                used_price = used_tag.text.strip() if used_tag else None
-                product_link = "https://www.bhphotovideo.com" + link_tag["href"] if link_tag else search_url
-
-                return {
-                    "price": price,
-                    "used_price": used_price,
-                    "link": product_link,
-                    "warning": None
+        function autoResetOnDelete(id) {
+            const input = document.getElementById(id);
+            input.addEventListener("input", () => {
+                if (input.value.trim() === "") {
+                    input.value = "";
                 }
-
-        return {
-            "price": "No match found",
-            "used_price": None,
-            "link": search_url,
-            "warning": "⚠️"
+            });
         }
 
-    except Exception as e:
-        return {
-            "price": "Error fetching price",
-            "used_price": None,
-            "link": search_url,
-            "warning": f"(Error: {e})"
+        window.onload = function () {
+            autoResetOnDelete("name");
+            autoResetOnDelete("mpn");
         }
+    </script>
+</head>
+<body class="bg-light">
+<div class="container mt-5 p-4 bg-white rounded shadow-sm">
+    <h3>🔍 Lensrentals Product Verifier</h3>
+    <form id="productForm" method="post">
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <input id="name" name="name" class="form-control" placeholder="e.g., Sony FX3" value="{{ request.form.get('name', '') }}">
+            </div>
+            <div class="form-group col-md-6">
+                <input id="mpn" name="mpn" class="form-control" placeholder="e.g., 1671" value="{{ request.form.get('mpn', '') }}">
+            </div>
+        </div>
+        <p class="text-muted">Enter a product name or MPN — one is required.</p>
+        <button type="submit" class="btn btn-primary">Check Prices</button>
+        <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+    </form>
 
-@app.route("/", methods=["GET", "POST"])
-def index():
-    context = {}
-    if request.method == "POST":
-        name = request.form.get("product_name", "").strip()
-        mpn = request.form.get("product_mpn", "").strip()
+    {% if data.error %}
+        <div class="alert alert-danger mt-4">{{ data.error }}</div>
+    {% endif %}
 
-        context["product_name"] = name
-        context["product_mpn"] = mpn
+    {% if data.bh or data.adorama or data.ebay or data.mpb %}
+        <hr>
+        <h5>📎 Pricing Summary</h5>
 
-        if not name and not mpn:
-            context["error"] = "Please enter a product name or MPN."
-            return render_template("retail_price_viewer.html", **context)
+        <p><strong>B&H Photo:</strong>
+            {% if data.bh.status == 'error' %}
+                <a href="{{ data.bh.link }}" target="_blank">Error fetching price</a>
+                <span class="text-warning"> ({{ data.bh.message }})</span>
+            {% else %}
+                <a href="{{ data.bh.link }}" target="_blank">{{ data.bh.price }}</a>
+            {% endif %}
+        </p>
 
-        context["bh"] = scrape_bh_photo(name, mpn)
-        context["adorama"] = {"price": "Out of Stock"}
-        context["ebay"] = {"price": "$2,950 avg (last 3 sold)", "link": "#"}
-        context["mpb"] = {"price": "$2,780", "link": "#"}
-
-    return render_template("retail_price_viewer.html", **context)
-
-if __name__ == "__main__":
-    app.run(debug=True)
+        <p><strong>Adorama:</strong> {{ data.adorama }}</p>
+        <p><strong>eBay Sold:</strong> <a href="#">{{ data.ebay }}</a></p>
+        <p><strong>MPB:</strong> <a href="#">{{ data.mpb }}</a></p>
+    {% endif %}
+</div>
+</body>
+</html>
