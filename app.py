@@ -1,74 +1,80 @@
 from flask import Flask, render_template, request
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service as ChromeService
-from webdriver_manager.chrome import ChromeDriverManager
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import quote
 
 app = Flask(__name__)
 
-def fetch_bh_price(mpn):
+def fetch_bh_data(mpn, name):
     try:
-        # Headless Selenium browser setup
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        chrome_options.add_argument("--disable-gpu")
-        chrome_options.add_argument("--no-sandbox")
+        if not mpn and not name:
+            return {"status": "error", "message": "MPN or name required", "link": "", "price": ""}
 
-        driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
+        query = mpn if mpn else name
+        bh_link = f"https://www.bhphotovideo.com/c/search?Ntt={query}"
 
-        search_url = f"https://www.bhphotovideo.com/c/search?Ntt={quote(mpn)}"
-        driver.get(search_url)
-        
-        # Wait for page content
-        driver.implicitly_wait(5)
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://www.bhphotovideo.com/",
+        }
 
-        first_result = driver.find_elements(By.CSS_SELECTOR, 'div.productListing')[0]
-        link_element = first_result.find_element(By.CSS_SELECTOR, 'a.link')
-        price_element = first_result.find_element(By.CSS_SELECTOR, 'span[data-selenium="pricingPrice"]')
+        response = requests.get(bh_link, headers=headers, timeout=10)
 
-        product_url = link_element.get_attribute('href')
-        price = price_element.text.strip()
+        if response.status_code == 403:
+            return {
+                "status": "error",
+                "message": f"403 Client Error: Forbidden for url: {bh_link}",
+                "link": bh_link,
+                "price": "",
+            }
 
-        driver.quit()
+        soup = BeautifulSoup(response.text, "html.parser")
+        product_card = soup.select_one(".productListingContainer__content")
 
-        return {"status": "success", "price": price, "link": product_url}
+        if product_card:
+            price_tag = product_card.select_one(".price_1DPoToKrLP8uWvruGqgtaY")
+            price = price_tag.text.strip() if price_tag else "Price not found"
+            return {
+                "status": "success",
+                "price": price,
+                "link": bh_link,
+                "message": "",
+            }
+        else:
+            return {
+                "status": "error",
+                "message": "No match found ⚠️",
+                "link": bh_link,
+                "price": "",
+            }
 
     except Exception as e:
-        return {"status": "error", "message": str(e), "link": f"https://www.bhphotovideo.com/c/search?Ntt={quote(mpn)}"}
+        return {
+            "status": "error",
+            "message": f"Error fetching B&H data: {e}",
+            "link": f"https://www.bhphotovideo.com/c/search?Ntt={mpn or name}",
+            "price": "",
+        }
 
-def fetch_adorama():
-    return "Out of Stock"
-
-def fetch_ebay():
-    return "$2,950 avg (last 3 sold)"
-
-def fetch_mpb():
-    return "$2,780"
-
-@app.route("/", methods=["GET", "POST"])
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    data = {}
+    data = {
+        "bh": None,
+        "adorama": "Out of Stock",
+        "ebay": "$2,950 avg (last 3 sold)",
+        "mpb": "$2,780",
+        "error": None,
+    }
 
-    if request.method == "POST":
-        name = request.form.get("name", "")
-        mpn = request.form.get("mpn", "")
+    if request.method == 'POST':
+        name = request.form.get("name", "").strip()
+        mpn = request.form.get("mpn", "").strip()
 
-        if name.strip() == "" and mpn.strip() == "":
-            data['error'] = "Please enter a product name or MPN."
-            return render_template("retail_price_viewer.html", data=data)
+        if not name and not mpn:
+            data["error"] = "Please enter either a product name or MPN."
+        else:
+            data["bh"] = fetch_bh_data(mpn, name)
 
-        bh = fetch_bh_price(mpn.strip())
-        data["bh"] = bh
+    return render_template('index.html', data=data)
 
-        data["adorama"] = fetch_adorama()
-        data["ebay"] = fetch_ebay()
-        data["mpb"] = fetch_mpb()
-
-    return render_template("retail_price_viewer.html", data=data)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)
