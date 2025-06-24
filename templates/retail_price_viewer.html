@@ -1,100 +1,93 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Lensrentals Product Verifier</title>
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-  <style>
-    body { padding: 2rem; background: #f9f9f9; }
-    .container { background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    .title-icon { font-size: 1.5rem; margin-right: 0.5rem; }
-    .price-summary a { font-weight: bold; }
-  </style>
+    <title>Lensrentals Product Verifier</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body { padding: 2rem; }
+        input.form-control:focus { background-color: #e9f5ff; }
+        .summary-link { color: #007bff; text-decoration: none; }
+        .summary-link:hover { text-decoration: underline; }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h3><span class="title-icon">🔍</span>Lensrentals Product Verifier</h3>
-
-    <div class="form-row my-3">
-      <div class="col-md-6 mb-2">
-        <input id="name" class="form-control" type="text" placeholder="e.g., Sony FX3" autocomplete="off">
-      </div>
-      <div class="col-md-6 mb-2">
-        <input id="mpn" class="form-control" type="text" placeholder="e.g., ILME-FX3A" autocomplete="off">
-      </div>
+    <div class="container">
+        <h3>🔍 Lensrentals Product Verifier</h3>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <input id="nameInput" class="form-control" type="text" placeholder="e.g., Sony FX3">
+            </div>
+            <div class="col-md-6">
+                <input id="mpnInput" class="form-control" type="text" placeholder="e.g., 1671">
+            </div>
+            <small class="text-muted mt-1">Enter a product name or MPN — one is required.</small>
+        </div>
+        <div class="mb-3">
+            <button class="btn btn-primary" onclick="checkPrices()">Check Prices</button>
+            <button class="btn btn-secondary" onclick="resetFields()">Reset</button>
+        </div>
+        <div id="errorMsg" class="text-danger mb-3"></div>
+        <div id="results" class="border-top pt-3 d-none">
+            <h5>📎 Pricing Summary</h5>
+            <p><strong>B&H Photo:</strong> <span id="bhResult"></span></p>
+            <p><strong>Adorama:</strong> <span id="adoramaResult"></span></p>
+            <p><strong>eBay Sold:</strong> <span id="ebayResult"></span></p>
+            <p><strong>MPB:</strong> <span id="mpbResult"></span></p>
+        </div>
     </div>
-    <small class="text-muted mb-3 d-block">Enter a product name or MPN — one is required.</small>
 
-    <div class="mb-3">
-      <button id="checkBtn" class="btn btn-primary">Check Prices</button>
-      <button id="resetBtn" class="btn btn-secondary">Reset</button>
-    </div>
+    <script>
+        function checkPrices() {
+            const name = document.getElementById('nameInput').value;
+            const mpn = document.getElementById('mpnInput').value;
+            document.getElementById('errorMsg').textContent = '';
 
-    <div id="error" class="text-danger mb-2"></div>
+            if (!name && !mpn) {
+                document.getElementById('errorMsg').textContent = 'Enter a product name or MPN.';
+                return;
+            }
 
-    <h5>📎 Pricing Summary</h5>
-    <div id="results" class="price-summary">
-      <p><strong>B&H Photo:</strong> <span id="bhResult">—</span></p>
-      <p><strong>Adorama:</strong> <span id="adoramaResult">—</span></p>
-      <p><strong>eBay Sold:</strong> <span id="ebayResult">—</span></p>
-      <p><strong>MPB:</strong> <span id="mpbResult">—</span></p>
-    </div>
-  </div>
+            fetch('/check_prices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, mpn })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('results').classList.remove('d-none');
 
-  <script>
-    document.getElementById('checkBtn').addEventListener('click', async () => {
-      const name = document.getElementById('name').value.trim();
-      const mpn = document.getElementById('mpn').value.trim();
-      const errorEl = document.getElementById('error');
-      errorEl.textContent = '';
+                const bh = data.bh;
+                let bhHTML = bh.status;
+                if (bh.price) bhHTML += ` — ${bh.price}`;
+                if (bh.used_price) bhHTML += ` (Used: ${bh.used_price})`;
+                if (bh.link) bhHTML = `<a class="summary-link" href="${bh.link}" target="_blank">${bhHTML}</a>`;
+                if (bh.warning) bhHTML += ` ⚠️`;
 
-      if (!name && !mpn) {
-        errorEl.textContent = 'Please enter a product name or MPN.';
-        return;
-      }
+                document.getElementById('bhResult').innerHTML = bhHTML;
+                document.getElementById('adoramaResult').textContent = data.adorama.status;
+                document.getElementById('ebayResult').innerHTML = `<a class="summary-link" href="#">${data.ebay.price}</a>`;
+                document.getElementById('mpbResult').innerHTML = `<a class="summary-link" href="#">${data.mpb.price}</a>`;
+            })
+            .catch(error => {
+                console.error(error);
+                document.getElementById('errorMsg').textContent = 'Something went wrong.';
+            });
+        }
 
-      const res = await fetch('/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, mpn })
-      });
+        function resetFields() {
+            document.getElementById('nameInput').value = '';
+            document.getElementById('mpnInput').value = '';
+            document.getElementById('results').classList.add('d-none');
+            document.getElementById('errorMsg').textContent = '';
+        }
 
-      const data = await res.json();
-
-      document.getElementById('bhResult').innerHTML =
-        data.bh?.status === 'In Stock'
-        ? `<a href="${data.bh.url}" target="_blank">${data.bh.status} — ${data.bh.price}${data.bh.used_price ? ' (Used: ' + data.bh.used_price + ')' : ''}</a>`
-        : data.bh?.status || '—';
-
-      document.getElementById('adoramaResult').innerHTML =
-        data.adorama?.status || '—';
-
-      document.getElementById('ebayResult').innerHTML =
-        data.ebay?.price
-        ? `<a href="${data.ebay.url}" target="_blank">${data.ebay.price}</a>`
-        : '—';
-
-      document.getElementById('mpbResult').innerHTML =
-        data.mpb?.price
-        ? `<a href="${data.mpb.url}" target="_blank">${data.mpb.status} — ${data.mpb.price}</a>`
-        : '—';
-    });
-
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      document.getElementById('name').value = '';
-      document.getElementById('mpn').value = '';
-      document.getElementById('error').textContent = '';
-      document.getElementById('bhResult').textContent = '—';
-      document.getElementById('adoramaResult').textContent = '—';
-      document.getElementById('ebayResult').textContent = '—';
-      document.getElementById('mpbResult').textContent = '—';
-    });
-
-    // Clear old autofilled input values on refresh
-    window.addEventListener('pageshow', () => {
-      document.getElementById('name').value = '';
-      document.getElementById('mpn').value = '';
-    });
-  </script>
+        // Select text on focus for faster re-entry
+        document.getElementById('nameInput').addEventListener('focus', function() {
+            this.select();
+        });
+        document.getElementById('mpnInput').addEventListener('focus', function() {
+            this.select();
+        });
+    </script>
 </body>
 </html>
