@@ -1,92 +1,73 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Lensrentals Product Verifier</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <style>
         body { padding: 2rem; }
-        input.form-control:focus { background-color: #e9f5ff; }
-        .summary-link { color: #007bff; text-decoration: none; }
-        .summary-link:hover { text-decoration: underline; }
+        .warning { color: #d39e00; }
+        .result-link { color: #0d6efd; text-decoration: none; }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="container p-4 bg-light shadow rounded">
         <h3>🔍 Lensrentals Product Verifier</h3>
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <input id="nameInput" class="form-control" type="text" placeholder="e.g., Sony FX3">
+        <form method="post" id="priceForm">
+            <div class="row mb-3">
+                <div class="col">
+                    <input name="product_name" id="product_name" class="form-control" type="text" placeholder="e.g., Sony FX3" value="{{ product_name or '' }}">
+                </div>
+                <div class="col">
+                    <input name="product_mpn" id="product_mpn" class="form-control" type="text" placeholder="e.g., 1671" value="{{ product_mpn or '' }}">
+                </div>
             </div>
-            <div class="col-md-6">
-                <input id="mpnInput" class="form-control" type="text" placeholder="e.g., 1671">
-            </div>
-            <small class="text-muted mt-1">Enter a product name or MPN — one is required.</small>
-        </div>
-        <div class="mb-3">
-            <button class="btn btn-primary" onclick="checkPrices()">Check Prices</button>
-            <button class="btn btn-secondary" onclick="resetFields()">Reset</button>
-        </div>
-        <div id="errorMsg" class="text-danger mb-3"></div>
-        <div id="results" class="border-top pt-3 d-none">
+            <p class="text-muted">Enter a product name or MPN — one is required.</p>
+            {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
+            <button class="btn btn-primary me-2" type="submit">Check Prices</button>
+            <button class="btn btn-secondary" type="button" onclick="resetForm()">Reset</button>
+        </form>
+
+        {% if bh or adorama or ebay or mpb %}
+            <hr>
             <h5>📎 Pricing Summary</h5>
-            <p><strong>B&H Photo:</strong> <span id="bhResult"></span></p>
-            <p><strong>Adorama:</strong> <span id="adoramaResult"></span></p>
-            <p><strong>eBay Sold:</strong> <span id="ebayResult"></span></p>
-            <p><strong>MPB:</strong> <span id="mpbResult"></span></p>
-        </div>
+            <p><strong>B&H Photo:</strong>
+                {% if bh.link %}
+                    <a class="result-link" href="{{ bh.link }}" target="_blank">{{ bh.price }}</a>
+                    {% if bh.warning %}
+                        <span class="warning">{{ bh.warning }}</span>
+                    {% endif %}
+                    {% if bh.used_price %}
+                        <br><em>Used: {{ bh.used_price }}</em>
+                    {% endif %}
+                {% else %}
+                    {{ bh.price }}
+                {% endif %}
+            </p>
+            <p><strong>Adorama:</strong> {{ adorama.price }}</p>
+            <p><strong>eBay Sold:</strong>
+                <a class="result-link" href="{{ ebay.link }}" target="_blank">{{ ebay.price }}</a>
+            </p>
+            <p><strong>MPB:</strong>
+                <a class="result-link" href="{{ mpb.link }}" target="_blank">{{ mpb.price }}</a>
+            </p>
+        {% endif %}
     </div>
 
     <script>
-        function checkPrices() {
-            const name = document.getElementById('nameInput').value;
-            const mpn = document.getElementById('mpnInput').value;
-            document.getElementById('errorMsg').textContent = '';
-
-            if (!name && !mpn) {
-                document.getElementById('errorMsg').textContent = 'Enter a product name or MPN.';
-                return;
-            }
-
-            fetch('/check_prices', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, mpn })
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('results').classList.remove('d-none');
-
-                const bh = data.bh;
-                let bhHTML = bh.status;
-                if (bh.price) bhHTML += ` — ${bh.price}`;
-                if (bh.used_price) bhHTML += ` (Used: ${bh.used_price})`;
-                if (bh.link) bhHTML = `<a class="summary-link" href="${bh.link}" target="_blank">${bhHTML}</a>`;
-                if (bh.warning) bhHTML += ` ⚠️`;
-
-                document.getElementById('bhResult').innerHTML = bhHTML;
-                document.getElementById('adoramaResult').textContent = data.adorama.status;
-                document.getElementById('ebayResult').innerHTML = `<a class="summary-link" href="#">${data.ebay.price}</a>`;
-                document.getElementById('mpbResult').innerHTML = `<a class="summary-link" href="#">${data.mpb.price}</a>`;
-            })
-            .catch(error => {
-                console.error(error);
-                document.getElementById('errorMsg').textContent = 'Something went wrong.';
-            });
+        function resetForm() {
+            document.getElementById("product_name").value = "";
+            document.getElementById("product_mpn").value = "";
+            document.getElementById("priceForm").submit();
         }
 
-        function resetFields() {
-            document.getElementById('nameInput').value = '';
-            document.getElementById('mpnInput').value = '';
-            document.getElementById('results').classList.add('d-none');
-            document.getElementById('errorMsg').textContent = '';
-        }
-
-        // Select text on focus for faster re-entry
-        document.getElementById('nameInput').addEventListener('focus', function() {
-            this.select();
+        document.getElementById("product_name").addEventListener("input", e => {
+            if (e.target.value === "") document.getElementById("priceForm").submit();
         });
-        document.getElementById('mpnInput').addEventListener('focus', function() {
-            this.select();
+        document.getElementById("product_mpn").addEventListener("input", e => {
+            if (e.target.value === "") document.getElementById("priceForm").submit();
         });
     </script>
 </body>
