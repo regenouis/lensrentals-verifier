@@ -1,70 +1,74 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Lensrentals Product Verifier</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <script>
-        function resetForm() {
-            const form = document.getElementById("productForm");
-            form.reset();
-            document.getElementById("name").value = "";
-            document.getElementById("mpn").value = "";
-        }
+from flask import Flask, render_template, request
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service as ChromeService
+from webdriver_manager.chrome import ChromeDriverManager
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import quote
 
-        function autoResetOnDelete(id) {
-            const input = document.getElementById(id);
-            input.addEventListener("input", () => {
-                if (input.value.trim() === "") {
-                    input.value = "";
-                }
-            });
-        }
+app = Flask(__name__)
 
-        window.onload = function () {
-            autoResetOnDelete("name");
-            autoResetOnDelete("mpn");
-        }
-    </script>
-</head>
-<body class="bg-light">
-<div class="container mt-5 p-4 bg-white rounded shadow-sm">
-    <h3>🔍 Lensrentals Product Verifier</h3>
-    <form id="productForm" method="post">
-        <div class="form-row">
-            <div class="form-group col-md-6">
-                <input id="name" name="name" class="form-control" placeholder="e.g., Sony FX3" value="{{ request.form.get('name', '') }}">
-            </div>
-            <div class="form-group col-md-6">
-                <input id="mpn" name="mpn" class="form-control" placeholder="e.g., 1671" value="{{ request.form.get('mpn', '') }}">
-            </div>
-        </div>
-        <p class="text-muted">Enter a product name or MPN — one is required.</p>
-        <button type="submit" class="btn btn-primary">Check Prices</button>
-        <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
-    </form>
+def fetch_bh_price(mpn):
+    try:
+        # Headless Selenium browser setup
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
 
-    {% if data.error %}
-        <div class="alert alert-danger mt-4">{{ data.error }}</div>
-    {% endif %}
+        driver = webdriver.Chrome(service=ChromeService(ChromeDriverManager().install()), options=chrome_options)
 
-    {% if data.bh or data.adorama or data.ebay or data.mpb %}
-        <hr>
-        <h5>📎 Pricing Summary</h5>
+        search_url = f"https://www.bhphotovideo.com/c/search?Ntt={quote(mpn)}"
+        driver.get(search_url)
+        
+        # Wait for page content
+        driver.implicitly_wait(5)
 
-        <p><strong>B&H Photo:</strong>
-            {% if data.bh.status == 'error' %}
-                <a href="{{ data.bh.link }}" target="_blank">Error fetching price</a>
-                <span class="text-warning"> ({{ data.bh.message }})</span>
-            {% else %}
-                <a href="{{ data.bh.link }}" target="_blank">{{ data.bh.price }}</a>
-            {% endif %}
-        </p>
+        first_result = driver.find_elements(By.CSS_SELECTOR, 'div.productListing')[0]
+        link_element = first_result.find_element(By.CSS_SELECTOR, 'a.link')
+        price_element = first_result.find_element(By.CSS_SELECTOR, 'span[data-selenium="pricingPrice"]')
 
-        <p><strong>Adorama:</strong> {{ data.adorama }}</p>
-        <p><strong>eBay Sold:</strong> <a href="#">{{ data.ebay }}</a></p>
-        <p><strong>MPB:</strong> <a href="#">{{ data.mpb }}</a></p>
-    {% endif %}
-</div>
-</body>
-</html>
+        product_url = link_element.get_attribute('href')
+        price = price_element.text.strip()
+
+        driver.quit()
+
+        return {"status": "success", "price": price, "link": product_url}
+
+    except Exception as e:
+        return {"status": "error", "message": str(e), "link": f"https://www.bhphotovideo.com/c/search?Ntt={quote(mpn)}"}
+
+def fetch_adorama():
+    return "Out of Stock"
+
+def fetch_ebay():
+    return "$2,950 avg (last 3 sold)"
+
+def fetch_mpb():
+    return "$2,780"
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    data = {}
+
+    if request.method == "POST":
+        name = request.form.get("name", "")
+        mpn = request.form.get("mpn", "")
+
+        if name.strip() == "" and mpn.strip() == "":
+            data['error'] = "Please enter a product name or MPN."
+            return render_template("retail_price_viewer.html", data=data)
+
+        bh = fetch_bh_price(mpn.strip())
+        data["bh"] = bh
+
+        data["adorama"] = fetch_adorama()
+        data["ebay"] = fetch_ebay()
+        data["mpb"] = fetch_mpb()
+
+    return render_template("retail_price_viewer.html", data=data)
+
+if __name__ == "__main__":
+    app.run(debug=True)
