@@ -1,75 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Lensrentals Product Verifier</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.min.css">
-    <style>
-        body {
-            padding: 2rem;
-        }
-        .button {
-            display: inline-block;
-            padding: 0.75rem 1.25rem;
-            background-color: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            margin-left: 0.5rem;
-        }
-        .button:hover {
-            background-color: #0056b3;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lensrentals Product Verifier</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    input, button { margin: 0.5rem 0; padding: 0.5rem; font-size: 1rem; }
+    .summary a { color: #007BFF; text-decoration: none; }
+  </style>
 </head>
-<body>
-    <h3>🔍 Lensrentals Product Verifier</h3>
+<body onload="resetFields()">
+  <h2>🔍 Lensrentals Product Verifier</h2>
+  <form id="lookupForm">
+    <input type="text" id="productName" placeholder="e.g., Sony FX3" />
+    <br />
+    <input type="text" id="mpn" placeholder="e.g., ILME-FX3" />
+    <span>Enter a product name or MPN — one is required.</span>
+    <br />
+    <button type="submit">Check Prices</button>
+    <button type="button" onclick="resetFields()">Reset</button>
+  </form>
 
-    <form id="productForm">
-        <input type="text" id="productName" name="product_name" placeholder="e.g., Sony FX3">
-        <input type="text" id="mpn" name="mpn" placeholder="MPN (optional)">
-        <span>Enter a product name or MPN — one is required.</span><br><br>
-        <button type="submit">Check Prices</button>
-        <a href="/" class="button">Reset</a>
-    </form>
+  <div id="results" class="summary" style="margin-top: 2rem;"></div>
 
-    <div id="results" style="margin-top:2rem;"></div>
+  <script>
+    function resetFields() {
+      document.getElementById('productName').value = '';
+      document.getElementById('mpn').value = '';
+      document.getElementById('results').innerHTML = '';
+    }
 
-    <script>
-        const form = document.getElementById('productForm');
-        const resultsDiv = document.getElementById('results');
+    document.getElementById('lookupForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            const product_name = document.getElementById('productName').value.trim();
-            const mpn = document.getElementById('mpn').value.trim();
+      const product_name = document.getElementById('productName').value.trim();
+      const mpn = document.getElementById('mpn').value.trim();
 
-            if (!product_name && !mpn) {
-                alert('Please enter either a product name or MPN.');
-                return;
-            }
+      if (!product_name && !mpn) {
+        alert("Please enter either a product name or MPN.");
+        return;
+      }
 
-            fetch('/lookup', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({product_name, mpn})
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    resultsDiv.innerHTML = `<p style="color: red;">${data.error}</p>`;
-                    return;
-                }
+      const response = await fetch('/lookup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ product_name, mpn })
+      });
 
-                resultsDiv.innerHTML = `
-                    <h4>📎 Pricing Summary</h4>
-                    <p><strong>B&H Photo:</strong> ${data.bh_photo}</p>
-                    <p><strong>Adorama:</strong> ${data.adorama}</p>
-                    <p><strong>eBay Sold:</strong> ${data.ebay_sold}</p>
-                    <p><strong>MPB:</strong> ${data.mpb}</p>
-                `;
-            });
-        });
-    </script>
+      const data = await response.json();
+
+      if (data.error) {
+        document.getElementById('results').innerHTML = `<p style="color:red;">${data.error}</p>`;
+        return;
+      }
+
+      document.getElementById('results').innerHTML = `
+        <h3>🧷 Pricing Summary</h3>
+        <p><strong>B&H Photo:</strong> ${data.bh_photo}</p>
+        <p><strong>Adorama:</strong> ${data.adorama}</p>
+        <p><strong>eBay Sold:</strong> ${data.ebay_sold}</p>
+        <p><strong>MPB:</strong> ${data.mpb}</p>
+      `;
+    });
+  </script>
 </body>
 </html>
