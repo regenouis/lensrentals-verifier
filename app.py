@@ -1,9 +1,12 @@
+import os
 from flask import Flask, request, render_template
 from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
 
-app = Flask(__name__)
+# Explicitly set template folder path
+template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+app = Flask(__name__, template_folder=template_dir)
 CORS(app)
 
 HEADERS = {
@@ -76,7 +79,10 @@ def index():
             data['ebay_sold_link'] = f"https://www.ebay.com/sch/i.html?_nkw={ebay_query}&LH_Sold=1&LH_Complete=1"
             data['mpb_link'] = f"https://www.mpb.com/en-us/search/?q={query_param}"
 
-    return render_template('retail_price_viewer.html', data=data)
+    try:
+        return render_template('retail_price_viewer.html', data=data)
+    except Exception as e:
+        return f"Template render error: {e}"
 
 if __name__ == '__main__':
     app.run(debug=True)
