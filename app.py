@@ -1,28 +1,32 @@
 import streamlit as st
 from scrapers.bh_scraper import check_bh
-from scrapers.ebay_scraper import check_ebay
-from scrapers.adorama_scraper import check_adorama
-from scrapers.mpb_scraper import check_mpb
 
 st.set_page_config(page_title="Lensrentals Product Verifier", layout="centered")
 
-st.markdown("## 🔍 Lensrentals Product Verifier")
+st.title("🔍 Lensrentals Product Verifier")
 
-product_name = st.text_input("Enter product name (e.g., 'Canon R5'):", "")
-mpn = st.text_input("Enter MPN (Manufacturer Part Number):", "")
+st.markdown(
+    """
+    Use this tool to check **real-time B&H availability and pricing** for a specific product.
+    Enter the product name and its MPN (Manufacturer Part Number) below.
+    """
+)
 
-if st.button("Verify"):
+with st.form("product_form"):
+    product_name = st.text_input("Product Name", placeholder="e.g. Canon R5")
+    mpn = st.text_input("MPN", placeholder="e.g. 4082C002")
+    submitted = st.form_submit_button("Verify")
+
+if submitted:
     if not product_name or not mpn:
-        st.error("Please enter both a product name and MPN.")
+        st.error("Please enter both the product name and MPN.")
     else:
-        with st.spinner("Verifying product..."):
+        with st.spinner("Checking B&H Photo Video..."):
             bh_data = check_bh(product_name, mpn)
-            ebay_data = check_ebay(product_name, mpn)
-            adorama_data = check_adorama(product_name, mpn)
-            mpb_data = check_mpb(product_name, mpn)
 
-            st.markdown("### 🔗 Availability & Pricing")
-
-            for source in [bh_data, ebay_data, adorama_data, mpb_data]:
-                with st.expander(source["retailer"]):
-                    st.code(source, language="json")
+        st.markdown("---")
+        st.subheader("📦 B&H Result")
+        if bh_data:
+            st.json(bh_data)
+        else:
+            st.warning("No valid data returned from B&H. Please double-check the inputs.")
