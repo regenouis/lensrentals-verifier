@@ -1,4 +1,15 @@
-def check_bh(product_name, mpn):
+# scrapers/bh_scraper.py
+
+import requests
+from bs4 import BeautifulSoup
+import re
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+}
+
+def check_bh(product_name: str, mpn: str) -> dict:
     print(f"[DEBUG] Received product_name: {product_name}, mpn: {mpn}")
     search_url = f"https://www.bhphotovideo.com/c/search?q={mpn}&sts=ma"
 
@@ -8,16 +19,16 @@ def check_bh(product_name, mpn):
 
         product_blocks = soup.select("div.resultItem") or soup.select("div#productListing div.item")
 
-        best_match = None
+        best_match_url = None
         for block in product_blocks:
             href_tag = block.find("a", href=True)
             text = block.get_text().lower()
 
-            if href_tag and (mpn.lower() in text or (product_name and product_name.lower() in text)):
-                best_match = "https://www.bhphotovideo.com" + href_tag["href"]
+            if href_tag and (mpn.lower() in text or product_name.lower() in text):
+                best_match_url = "https://www.bhphotovideo.com" + href_tag["href"]
                 break
 
-        if not best_match:
+        if not best_match_url:
             return {
                 "retailer": "B&H",
                 "status": "Not Found",
@@ -27,11 +38,11 @@ def check_bh(product_name, mpn):
                 "note": "No matching product block found — manual check recommended."
             }
 
-        prod_response = requests.get(best_match, headers=HEADERS, timeout=10)
+        prod_response = requests.get(best_match_url, headers=HEADERS, timeout=10)
         prod_soup = BeautifulSoup(prod_response.text, "html.parser")
 
         full_text = prod_soup.get_text().lower()
-        confirmed = mpn.lower() in full_text or (product_name and product_name.lower() in full_text)
+        confirmed = mpn.lower() in full_text or product_name.lower() in full_text
 
         if not confirmed:
             return {
@@ -39,7 +50,7 @@ def check_bh(product_name, mpn):
                 "status": "Mismatch",
                 "product_name": product_name,
                 "mpn": mpn,
-                "url": best_match,
+                "url": best_match_url,
                 "note": "Product page reached but MPN not confirmed — manual validation advised."
             }
 
@@ -55,7 +66,7 @@ def check_bh(product_name, mpn):
             "status": "Found",
             "product_name": product_name,
             "mpn": mpn,
-            "url": best_match,
+            "url": best_match_url,
             "price": price,
             "stock": stock_status,
             "note": "Match found via product page"
