@@ -22,7 +22,7 @@ if submitted:
         st.error("Please enter both the product name and MPN.")
     else:
         with st.spinner("Checking B&H Photo Video..."):
-            bh_data = check_bh(product_name, mpn)
+            bh_data = check_bh(mpn, product_name)  # ✅ Corrected argument order
 
         st.markdown("---")
         st.subheader("📦 B&H Result")
