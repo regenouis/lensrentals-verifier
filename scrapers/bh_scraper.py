@@ -1,54 +1,95 @@
 import requests
 from bs4 import BeautifulSoup
+import re
 
-def check_bh(product_name, mpn):
-    base_url = "https://www.bhphotovideo.com"
-    search_url = f"{base_url}/c/search?q={mpn}&sts=ma"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+}
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+def check_bh(mpns, product_name=None):
+    results = []
+    for mpn in mpns:
+        search_url = f"https://www.bhphotovideo.com/c/search?q={mpn}&sts=ma"
+        try:
+            response = requests.get(search_url, headers=HEADERS, timeout=10)
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            # Look for all search result blocks
+            product_blocks = soup.select("div.resultItem") or soup.select("div#productListing div.item")
+
+            best_match = None
+            for block in product_blocks:
+                href_tag = block.find("a", href=True)
+                text = block.get_text().lower()
+
+                if href_tag and (mpn.lower() in text or (product_name and product_name.lower() in text)):
+                    best_match = "https://www.bhphotovideo.com" + href_tag["href"]
+                    break
+
+            # If no match found
+            if not best_match:
+                return {
+                    "retailer": "B&H",
+                    "status": "Not Found",
+                    "product_name": product_name,
+                    "mpn": mpn,
+                    "url": search_url,
+                    "note": "No matching product block found — manual check recommended."
+                }
+
+            # Follow product link
+            prod_response = requests.get(best_match, headers=HEADERS, timeout=10)
+            prod_soup = BeautifulSoup(prod_response.text, "html.parser")
+
+            # Confirm MPN on product page
+            full_text = prod_soup.get_text().lower()
+            confirmed = mpn.lower() in full_text or (product_name and product_name.lower() in full_text)
+
+            if not confirmed:
+                return {
+                    "retailer": "B&H",
+                    "status": "Mismatch",
+                    "product_name": product_name,
+                    "mpn": mpn,
+                    "url": best_match,
+                    "note": "Product page reached but MPN not confirmed — manual validation advised."
+                }
+
+            # Attempt price + stock extraction
+            price_tag = prod_soup.select_one("div#PriceBlock .price_1DPoToKrLP8uWvruGqgtaY") or \
+                        prod_soup.select_one("div.price")
+            price = price_tag.get_text(strip=True) if price_tag else "Unknown"
+
+            stock_tag = prod_soup.find(string=re.compile("In Stock", re.I))
+            stock_status = "In Stock" if stock_tag else "Check Availability"
+
+            return {
+                "retailer": "B&H",
+                "status": "Found",
+                "product_name": product_name,
+                "mpn": mpn,
+                "url": best_match,
+                "price": price,
+                "stock": stock_status,
+                "note": "Match found via product page"
+            }
+
+        except Exception as e:
+            return {
+                "retailer": "B&H",
+                "status": "Error",
+                "product_name": product_name,
+                "mpn": mpn,
+                "url": search_url,
+                "note": f"Exception occurred: {str(e)}"
+            }
+
+    return {
+        "retailer": "B&H",
+        "status": "Not Found",
+        "product_name": product_name,
+        "mpn": ", ".join(mpns),
+        "url": search_url,
+        "note": "No results after full scan"
     }
-
-    try:
-        response = requests.get(search_url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        product_blocks = soup.select("div[data-selenium='miniProductPageProduct']")
-        for block in product_blocks[:3]:  # check top 3 results
-            title_elem = block.select_one("span[data-selenium='miniProductPageProductName']")
-            mpn_elem = block.select_one("div[data-selenium='miniProductPageModel']")
-
-            if title_elem and mpn_elem:
-                title = title_elem.text.strip().lower()
-                found_mpn = mpn_elem.text.strip().lower()
-                if mpn.lower() in found_mpn and product_name.lower() in title:
-                    price_elem = block.select_one("div[data-selenium='pricingPrice']")
-                    status = "In Stock" if price_elem else "Possibly Out of Stock"
-
-                    return {
-                        "retailer": "B&H",
-                        "status": status,
-                        "product_name": product_name,
-                        "mpn": mpn,
-                        "url": search_url,
-                        "note": "Match found via MPN and product name"
-                    }
-
-        return {
-            "retailer": "B&H",
-            "status": "Not Found",
-            "product_name": product_name,
-            "mpn": mpn,
-            "url": search_url,
-            "note": "No matching product block found — manual check recommended."
-        }
-
-    except Exception as e:
-        return {
-            "retailer": "B&H",
-            "status": "Error",
-            "product_name": product_name,
-            "mpn": mpn,
-            "url": search_url,
-            "note": f"Scraper error: {str(e)}"
-        }
