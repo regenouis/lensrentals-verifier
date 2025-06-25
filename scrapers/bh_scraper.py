@@ -1,3 +1,8 @@
+def check_bh(product_name, mpn):
+    print(f"[DEBUG] Received product_name: {product_name}, mpn: {mpn}")
+    # rest of function...
+
+
 import requests
 from bs4 import BeautifulSoup
 import re
