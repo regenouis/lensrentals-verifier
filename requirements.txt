@@ -3,3 +3,5 @@ flask_cors
 gunicorn
 requests
 beautifulsoup4
+openai
+streamlit
