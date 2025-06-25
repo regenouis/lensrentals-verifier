@@ -1,12 +1,10 @@
-import os
 from flask import Flask, request, render_template
 from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
+import traceback
 
-# Explicitly set template folder path
-template_dir = os.path.join(os.path.dirname(__file__), 'templates')
-app = Flask(__name__, template_folder=template_dir)
+app = Flask(__name__)
 CORS(app)
 
 HEADERS = {
@@ -74,7 +72,9 @@ def index():
             except Exception:
                 data['mpb'] = 'Error fetching MPB data'
 
+            # Adorama static placeholder
             data['adorama'] = 'Check site manually'
+
             data['ebay_for_sale_link'] = f"https://www.ebay.com/sch/i.html?_nkw={ebay_query}&LH_ItemCondition=3000&_sop=12"
             data['ebay_sold_link'] = f"https://www.ebay.com/sch/i.html?_nkw={ebay_query}&LH_Sold=1&LH_Complete=1"
             data['mpb_link'] = f"https://www.mpb.com/en-us/search/?q={query_param}"
@@ -82,7 +82,9 @@ def index():
     try:
         return render_template('retail_price_viewer.html', data=data)
     except Exception as e:
-        return f"Template render error: {e}"
+        print("Template render failed:", str(e))
+        print(traceback.format_exc())
+        return f"Template render error: {str(e)}"
 
 if __name__ == '__main__':
     app.run(debug=True)
