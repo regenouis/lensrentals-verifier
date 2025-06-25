@@ -2,7 +2,6 @@ from flask import Flask, request, render_template
 from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
-import traceback
 
 app = Flask(__name__)
 CORS(app)
@@ -12,37 +11,48 @@ HEADERS = {
 }
 
 def scrape_ebay_listings(query):
-    url = f"https://www.ebay.com/sch/i.html?_nkw={query}&LH_ItemCondition=3000&_sop=12"
-    response = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    prices = [item.get_text() for item in soup.select("span.s-item__price")][:5]
-    return prices
+    try:
+        url = f"https://www.ebay.com/sch/i.html?_nkw={query}&LH_ItemCondition=3000&_sop=12"
+        response = requests.get(url, headers=HEADERS, timeout=6)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        prices = [item.get_text() for item in soup.select("span.s-item__price")][:5]
+        return prices if prices else None
+    except:
+        return None
 
 def scrape_ebay_sold(query):
-    url = f"https://www.ebay.com/sch/i.html?_nkw={query}&LH_Sold=1&LH_Complete=1"
-    response = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    prices = [item.get_text() for item in soup.select("span.s-item__price")][:3]
-    return prices
+    try:
+        url = f"https://www.ebay.com/sch/i.html?_nkw={query}&LH_Sold=1&LH_Complete=1"
+        response = requests.get(url, headers=HEADERS, timeout=6)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        prices = [item.get_text() for item in soup.select("span.s-item__price")][:3]
+        return prices if prices else None
+    except:
+        return None
 
 def scrape_mpb(query):
-    url = f"https://www.mpb.com/en-us/search/?q={query}"
-    response = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(response.text, 'html.parser')
-    match = soup.select_one(".listing .price")
-    return match.get_text(strip=True) if match else "No data found"
+    try:
+        url = f"https://www.mpb.com/en-us/search/?q={query}"
+        response = requests.get(url, headers=HEADERS, timeout=6)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        match = soup.select_one(".listing .price")
+        return match.get_text(strip=True) if match else None
+    except:
+        return None
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     data = {
-        "adorama": None,
-        "ebay_for_sale": None,
-        "ebay_sold": None,
-        "mpb": None,
-        "error": None,
-        "ebay_for_sale_link": None,
-        "ebay_sold_link": None,
-        "mpb_link": None
+        "name": "",
+        "mpn": "",
+        "adorama": "Check site manually",
+        "ebay_for_sale": "No listings found",
+        "ebay_sold": "No sold data",
+        "mpb": "No data found",
+        "ebay_for_sale_link": "",
+        "ebay_sold_link": "",
+        "mpb_link": "",
+        "error": None
     }
 
     if request.method == 'POST':
@@ -50,41 +60,32 @@ def index():
         mpn = request.form.get('mpn', '').strip()
 
         if not name and not mpn:
-            data['error'] = 'Please enter either a product name or MPN.'
+            data['error'] = "Please enter either a product name or MPN."
         else:
             query_param = mpn or name
-            ebay_query = query_param.replace(' ', '+')
+            query_encoded = query_param.replace(' ', '+')
 
-            try:
-                for_sale_prices = scrape_ebay_listings(ebay_query)
-                data['ebay_for_sale'] = ', '.join(for_sale_prices) if for_sale_prices else 'No listings found'
-            except Exception:
-                data['ebay_for_sale'] = 'Error fetching eBay listings'
+            data["name"] = name
+            data["mpn"] = mpn
 
-            try:
-                sold_prices = scrape_ebay_sold(ebay_query)
-                data['ebay_sold'] = ', '.join(sold_prices) if sold_prices else 'No sold data'
-            except Exception:
-                data['ebay_sold'] = 'Error fetching eBay sold data'
+            # eBay links
+            data['ebay_for_sale_link'] = f"https://www.ebay.com/sch/i.html?_nkw={query_encoded}&LH_ItemCondition=3000&_sop=12"
+            data['ebay_sold_link'] = f"https://www.ebay.com/sch/i.html?_nkw={query_encoded}&LH_Sold=1&LH_Complete=1"
 
-            try:
-                data['mpb'] = scrape_mpb(query_param)
-            except Exception:
-                data['mpb'] = 'Error fetching MPB data'
+            # MPB link
+            data['mpb_link'] = f"https://www.mpb.com/en-us/search/?q={query_encoded}"
 
-            # Adorama static placeholder
-            data['adorama'] = 'Check site manually'
+            # Try to scrape
+            for_sale = scrape_ebay_listings(query_encoded)
+            data['ebay_for_sale'] = ', '.join(for_sale) if for_sale else "No listings found"
 
-            data['ebay_for_sale_link'] = f"https://www.ebay.com/sch/i.html?_nkw={ebay_query}&LH_ItemCondition=3000&_sop=12"
-            data['ebay_sold_link'] = f"https://www.ebay.com/sch/i.html?_nkw={ebay_query}&LH_Sold=1&LH_Complete=1"
-            data['mpb_link'] = f"https://www.mpb.com/en-us/search/?q={query_param}"
+            sold = scrape_ebay_sold(query_encoded)
+            data['ebay_sold'] = ', '.join(sold) if sold else "No sold data"
 
-    try:
-        return render_template('retail_price_viewer.html', data=data)
-    except Exception as e:
-        print("Template render failed:", str(e))
-        print(traceback.format_exc())
-        return f"Template render error: {str(e)}"
+            mpb_price = scrape_mpb(query_encoded)
+            data['mpb'] = mpb_price if mpb_price else "No data found"
+
+    return render_template('retail_price_viewer.html', data=data)
 
 if __name__ == '__main__':
     app.run(debug=True)
