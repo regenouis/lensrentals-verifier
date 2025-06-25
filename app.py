@@ -1,93 +1,52 @@
-from flask import Flask, request, render_template
-from flask_cors import CORS
-import requests
-from bs4 import BeautifulSoup
-from urllib.parse import quote_plus
+import streamlit as st
+import openai
+import pandas as pd
+from dotenv import load_dotenv
+import os
 
-app = Flask(__name__)
-CORS(app)
+from scrapers.bh_scraper import get_bh_price
+from scrapers.ebay_scraper import get_ebay_prices
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115 Safari/537.36"
-}
+# Load environment variables from .env file
+load_dotenv()
 
-def scrape_ebay_for_sale(mpn):
-    query = quote_plus(mpn)
-    url = f"https://www.ebay.com/sch/i.html?_nkw={query}&_sacat=0&LH_ItemCondition=3000&LH_BIN=1&rt=nc"
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=8)
-        soup = BeautifulSoup(r.text, 'html.parser')
-        prices = [float(p.text.replace('$','').replace(',','')) for p in soup.select('.s-item__price')[:5] if '$' in p.text]
-        avg_price = f"${sum(prices)/len(prices):,.2f}" if prices else "No matches"
-        return avg_price, url
-    except Exception as e:
-        return "Error retrieving", url
+# Set OpenAI API key securely
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-def scrape_ebay_sold(mpn):
-    query = quote_plus(mpn)
-    url = f"https://www.ebay.com/sch/i.html?_nkw={query}&LH_Complete=1&LH_Sold=1"
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=8)
-        soup = BeautifulSoup(r.text, 'html.parser')
-        prices = [float(p.text.replace('$','').replace(',','')) for p in soup.select('.s-item__price')[:5] if '$' in p.text]
-        avg_price = f"${sum(prices)/len(prices):,.2f}" if prices else "No matches"
-        return avg_price, url
-    except Exception as e:
-        return "Error retrieving", url
+st.set_page_config(page_title="Retail Price Verifier", layout="wide")
+st.title("📦 Retail Price Verifier")
 
-def scrape_mpb(mpn):
-    query = quote_plus(mpn)
-    url = f"https://www.mpb.com/en-us/search/?q={query}"
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=8)
-        soup = BeautifulSoup(r.text, 'html.parser')
-        item = soup.find('p', class_='sc-dJjYzT jJigTJ')
-        return item.text.strip() if item else "Not listed", url
-    except:
-        return "Error retrieving", url
+# Input field for product name/MPN
+product_name = st.text_input("Enter Product Name or MPN", placeholder="Example: Nikon Zfc Mirrorless Camera (Silver)")
 
-def scrape_adorama(mpn):
-    query = quote_plus(mpn)
-    url = f"https://www.adorama.com/l/?searchinfo={query}"
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=8)
-        soup = BeautifulSoup(r.text, 'html.parser')
-        price = soup.select_one('.productPrice')
-        return price.text.strip() if price else "Not listed", url
-    except:
-        return "Error retrieving", url
+if product_name:
+    col1, col2 = st.columns(2)
 
-@app.route('/', methods=['GET', 'POST'])
-def home():
-    data = {
-        'name': '',
-        'mpn': '',
-        'error': '',
-        'ebay_for_sale': '',
-        'ebay_sold': '',
-        'mpb': '',
-        'adorama': '',
-        'ebay_for_sale_link': '',
-        'ebay_sold_link': '',
-        'mpb_link': '',
-        'adorama_link': ''
-    }
+    with col1:
+        st.subheader("🔍 B&H")
+        bh_result = get_bh_price(product_name)
+        st.write(bh_result)
 
-    if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        mpn = request.form.get('mpn', '').strip()
+    with col2:
+        st.subheader("🛒 eBay")
+        ebay_results = get_ebay_prices(product_name)
+        df_ebay = pd.DataFrame(ebay_results)
+        st.dataframe(df_ebay)
 
-        if not name and not mpn:
-            data['error'] = 'Please enter either a Product Name or MPN.'
-            return render_template('retail_price_viewer.html', data=data)
+    st.markdown("---")
+    st.subheader("🧠 GPT Summary")
 
-        data['name'] = name
-        data['mpn'] = mpn
-
-        if mpn:
-            data['ebay_for_sale'], data['ebay_for_sale_link'] = scrape_ebay_for_sale(mpn)
-            data['ebay_sold'], data['ebay_sold_link'] = scrape_ebay_sold(mpn)
-            data['mpb'], data['mpb_link'] = scrape_mpb(mpn)
-            data['adorama'], data['adorama_link'] = scrape_adorama(mpn)
-
-    return render_template('retail_price_viewer.html', data=data)
+    # GPT summary block
+    if st.button("Generate GPT Summary"):
+        context = f"B&H result: {bh_result}\n\nEbay results: {df_ebay.to_string(index=False)}"
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You're a retail analyst trained to summarize price insights for resale decision-making."},
+                {"role": "user", "content": f"Summarize the pricing and availability insights for this product:\n\n{context}"}
+            ],
+            temperature=0.3,
+            max_tokens=300
+        )
+        gpt_output = response.choices[0].message['content']
+        st.text_area("GPT Summary", value=gpt_output, height=200)
