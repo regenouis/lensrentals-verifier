@@ -1,58 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Lensrentals Product Verifier</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <script>
-        window.onload = function () {
-            // Clear form on refresh
-            if (performance.navigation.type === 1) {
-                document.getElementById("productForm").reset();
-            }
-        }
-
-        function resetFields() {
-            document.getElementById("productForm").reset();
-        }
-    </script>
+  <meta charset="UTF-8">
+  <title>Lensrentals Product Verifier</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <style>
+    body {
+      background: #f5f5f5;
+      padding-top: 2rem;
+    }
+    .container {
+      max-width: 700px;
+    }
+    .section-title {
+      font-weight: 600;
+      font-size: 1.2rem;
+      margin-top: 1.5rem;
+    }
+    .label {
+      font-weight: 500;
+    }
+    .price-line {
+      margin-bottom: 0.5rem;
+    }
+    .link {
+      font-size: 0.9rem;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🔍 Lensrentals Product Verifier</h1>
-        <form id="productForm" method="post">
-            <input type="text" name="name" placeholder="Product Name" value="">
-            <input type="text" name="mpn" placeholder="MPN" value="">
-            <button type="submit">Check Prices</button>
-            <button type="button" onclick="resetFields()">Reset</button>
-        </form>
+  <div class="container bg-white p-4 rounded shadow">
+    <h3 class="mb-4">🔍 Lensrentals Product Verifier</h3>
 
-        {% if data.error %}
-            <p class="error">{{ data.error }}</p>
-        {% endif %}
+    <form method="post" class="mb-3">
+      <div class="mb-2">
+        <input type="text" name="name" class="form-control" placeholder="Product Name" value="{{ data.name }}">
+      </div>
+      <div class="mb-2">
+        <input type="text" name="mpn" class="form-control" placeholder="MPN" value="{{ data.mpn }}">
+      </div>
+      <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Check Prices</button>
+        <a href="/" class="btn btn-secondary">Reset</a>
+      </div>
+    </form>
 
-        {% if data.ebay_for_sale or data.ebay_sold or data.mpb %}
-            <div class="results">
-                <h2>📊 Pricing Summary</h2>
-                <ul>
-                    <li><strong>eBay (Used for Sale):</strong>
-                        {{ data.ebay_for_sale }} —
-                        <a href="{{ data.ebay_for_sale_link }}" target="_blank">View Listings</a>
-                    </li>
-                    <li><strong>eBay (Sold Listings):</strong>
-                        {{ data.ebay_sold }} —
-                        <a href="{{ data.ebay_sold_link }}" target="_blank">View Sold</a>
-                    </li>
-                    <li><strong>MPB:</strong>
-                        {{ data.mpb }} —
-                        <a href="{{ data.mpb_link }}" target="_blank">View MPB</a>
-                    </li>
-                    <li><strong>Adorama:</strong>
-                        {{ data.adorama }}
-                    </li>
-                </ul>
-            </div>
-        {% endif %}
-    </div>
+    {% if data.error %}
+      <div class="alert alert-danger">{{ data.error }}</div>
+    {% endif %}
+
+    {% if data.name or data.mpn %}
+      <div class="section-title">🧾 Search Summary</div>
+      <div class="mb-2">
+        <strong>Product:</strong> {{ data.name or "N/A" }}<br>
+        <strong>MPN:</strong> {{ data.mpn or "N/A" }}
+      </div>
+    {% endif %}
+
+    <div class="section-title">📊 Scraped Pricing Summary</div>
+    <div class="price-line"><span class="label">eBay (Used for Sale):</span> {{ data.ebay_for_sale }}</div>
+    <div class="price-line"><span class="label">eBay (Sold Listings):</span> {{ data.ebay_sold }}</div>
+    <div class="price-line"><span class="label">MPB:</span> {{ data.mpb }}</div>
+    <div class="price-line"><span class="label">Adorama:</span> {{ data.adorama }}</div>
+
+    <div class="section-title">🔗 Manual Check Links</div>
+    <ul class="list-unstyled link">
+      <li><a href="{{ data.ebay_for_sale_link }}" target="_blank">View eBay Listings (Used)</a></li>
+      <li><a href="{{ data.ebay_sold_link }}" target="_blank">View eBay Sold Listings</a></li>
+      <li><a href="{{ data.mpb_link }}" target="_blank">View MPB Search</a></li>
+    </ul>
+  </div>
 </body>
 </html>
