@@ -1,44 +1,41 @@
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from pydantic import BaseModel
 from openai import OpenAI
 import logging
 
 app = FastAPI()
 
-# OpenAI client initialization (using Render-stored API key)
+# Initialize OpenAI client (no proxies, matches openai==1.25.1+)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Pydantic model for the request body
 class ProductRequest(BaseModel):
     product_name: str
     mpn: str
 
 @app.get("/")
-def read_root():
+def root():
     return {"status": "ok"}
 
 @app.post("/check_price")
 async def check_price(request: ProductRequest):
     try:
-        # Replace this prompt with your desired logic
         prompt = (
-            f"Check the average resale price and availability online for the product "
-            f"{request.product_name} with MPN {request.mpn}. Return findings in bullet format."
+            f"Find current pricing and availability for {request.product_name} "
+            f"with MPN {request.mpn}. Summarize the results in bullet points."
         )
 
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # You can switch to gpt-4 if your API key has access
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a product analyst helping verify gear prices."},
+                {"role": "system", "content": "You are a helpful product analyst."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.4
         )
 
-        result = response.choices[0].message.content.strip()
-        return {"response": result}
+        return {"response": response.choices[0].message.content.strip()}
 
     except Exception as e:
-        logging.exception("Error in /check_price")
+        logging.exception("Error occurred in /check_price")
         return {"error": str(e)}
