@@ -124,3 +124,6 @@ def check_price(request: ProductRequest):
         issues=validation["issues"],
         manual_links=manual_links
     )
+@app.get("/")
+def root():
+    return {"status": "ok"}
