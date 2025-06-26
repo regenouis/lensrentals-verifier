@@ -89,13 +89,14 @@ def validate_gpt_output(data):
     }
 
 def get_gpt_output(prompt):
-    response = openai.ChatCompletion.create(
+    client = openai.OpenAI()
+    response = client.chat.completions.create(
         model="gpt-4",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.2,
         max_tokens=500
     )
-    return response.choices[0].message["content"]
+    return response.choices[0].message.content
 
 def get_manual_search_links(product_name, mpn):
     encoded_name = quote_plus(product_name)
