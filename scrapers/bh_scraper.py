@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-import streamlit as st  # Needed for displaying debug output in Streamlit UI
+import streamlit as st
 
 def check_bh(mpn, product_name):
     result = {
@@ -13,7 +13,7 @@ def check_bh(mpn, product_name):
     }
 
     try:
-        # Step 1: Search using product name (not MPN)
+        # Step 1: Construct search URL
         search_query = product_name.replace(" ", "+")
         search_url = f"https://www.bhphotovideo.com/c/search?q={search_query}&sts=ma"
         result["url"] = search_url
@@ -25,24 +25,28 @@ def check_bh(mpn, product_name):
         response = requests.get(search_url, headers=headers)
         soup = BeautifulSoup(response.content, "html.parser")
 
-        # 🔍 DEBUG: Show top of HTML to inspect for changes
+        # Step 2: Show snippet for visual debugging
         raw_html = soup.prettify()
-        short_snippet = raw_html[:3000]  # Limit to first 3000 characters for display
-        st.expander("🔍 Debug: Raw HTML Snippet").code(short_snippet, language="html")
+        st.expander("🔍 Debug: Raw HTML Snippet").code(raw_html[:3000], language="html")
 
-        # Step 2: Find product blocks
-        product_blocks = soup.find_all("div", class_="item_block")
-        for block in product_blocks:
-            if mpn.lower() in block.text.lower():
+        # Step 3: Try alternative selectors if item_block not found
+        possible_blocks = soup.select("div[class*='product'], div[data-selenium='miniProductPageProduct']")
+
+        if not possible_blocks:
+            result["note"] = "No known product blocks found — structure may have changed."
+            return result
+
+        for block in possible_blocks:
+            block_text = block.get_text().lower()
+            if mpn.lower() in block_text:
                 link_tag = block.find("a", href=True)
                 if link_tag:
-                    product_page_url = f"https://www.bhphotovideo.com{link_tag['href']}"
                     result["status"] = "Found"
-                    result["url"] = product_page_url
-                    result["note"] = "Match found by product name and confirmed via MPN text match."
+                    result["url"] = f"https://www.bhphotovideo.com{link_tag['href']}"
+                    result["note"] = "Match found using fallback product block logic."
                     return result
 
-        result["note"] = "No matching product block found — manual check recommended."
+        result["note"] = "MPN not found in fallback product blocks — try manual check."
 
     except Exception as e:
         result["status"] = "Error"
