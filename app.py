@@ -15,6 +15,6 @@ with st.form("verify_form"):
 
     if submitted:
         with st.spinner("Checking B&H..."):
-            result = check_bh([mpn], product_name=product_name)
+            result = check_bh(product_name=product_name, mpn=mpn)
         st.markdown("### 📦 B&H Result")
         st.json(result)
