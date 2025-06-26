@@ -1,6 +1,9 @@
-import requests
-from bs4 import BeautifulSoup
-import streamlit as st
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import chromedriver_autoinstaller
+import time
 
 def check_bh(mpn, product_name):
     result = {
@@ -12,44 +15,53 @@ def check_bh(mpn, product_name):
         "note": ""
     }
 
+    # Auto-install compatible ChromeDriver
+    chromedriver_autoinstaller.install()
+
+    # Setup headless browser
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+
     try:
-        # Step 1: Construct search URL
+        driver = webdriver.Chrome(options=options)
         search_query = product_name.replace(" ", "+")
         search_url = f"https://www.bhphotovideo.com/c/search?q={search_query}&sts=ma"
         result["url"] = search_url
 
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
+        driver.get(search_url)
+        time.sleep(2)  # Allow JavaScript to render
 
-        response = requests.get(search_url, headers=headers)
-        soup = BeautifulSoup(response.content, "html.parser")
+        product_blocks = driver.find_elements(By.CSS_SELECTOR, "div[data-selenium='miniProductPageProduct']")
 
-        # Step 2: Show snippet for visual debugging
-        raw_html = soup.prettify()
-        st.expander("🔍 Debug: Raw HTML Snippet").code(raw_html[:3000], language="html")
-
-        # Step 3: Try alternative selectors if item_block not found
-        possible_blocks = soup.select("div[class*='product'], div[data-selenium='miniProductPageProduct']")
-
-        if not possible_blocks:
-            result["note"] = "No known product blocks found — structure may have changed."
+        if not product_blocks:
+            result["note"] = "No product blocks found — structure may have changed."
             return result
 
-        for block in possible_blocks:
-            block_text = block.get_text().lower()
-            if mpn.lower() in block_text:
-                link_tag = block.find("a", href=True)
-                if link_tag:
+        for block in product_blocks:
+            if mpn.lower() in block.text.lower():
+                try:
+                    link_tag = block.find_element(By.CSS_SELECTOR, "a")
+                    href = link_tag.get_attribute("href")
                     result["status"] = "Found"
-                    result["url"] = f"https://www.bhphotovideo.com{link_tag['href']}"
-                    result["note"] = "Match found using fallback product block logic."
-                    return result
+                    result["url"] = href
+                    result["note"] = "Match found using MPN in Selenium-rendered block."
+                    break
+                except NoSuchElementException:
+                    continue
 
-        result["note"] = "MPN not found in fallback product blocks — try manual check."
+        if result["status"] != "Found":
+            result["note"] = "MPN not found in Selenium-rendered product blocks."
 
     except Exception as e:
         result["status"] = "Error"
         result["note"] = f"Exception occurred: {str(e)}"
+
+    finally:
+        try:
+            driver.quit()
+        except:
+            pass
 
     return result
