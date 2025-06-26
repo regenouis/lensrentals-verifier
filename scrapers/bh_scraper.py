@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+import streamlit as st  # Needed for displaying debug output in Streamlit UI
 
 def check_bh(mpn, product_name):
     result = {
@@ -24,10 +25,14 @@ def check_bh(mpn, product_name):
         response = requests.get(search_url, headers=headers)
         soup = BeautifulSoup(response.content, "html.parser")
 
-        # Step 2: Find first matching product block
+        # 🔍 DEBUG: Show top of HTML to inspect for changes
+        raw_html = soup.prettify()
+        short_snippet = raw_html[:3000]  # Limit to first 3000 characters for display
+        st.expander("🔍 Debug: Raw HTML Snippet").code(short_snippet, language="html")
+
+        # Step 2: Find product blocks
         product_blocks = soup.find_all("div", class_="item_block")
         for block in product_blocks:
-            # Check for MPN match in data-description or similar tag
             if mpn.lower() in block.text.lower():
                 link_tag = block.find("a", href=True)
                 if link_tag:
