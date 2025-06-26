@@ -1,4 +1,3 @@
-# requirements.txt
 fastapi==0.110.0
 uvicorn==0.29.0
-openai==1.25.1  # updated just now
+openai==1.25.1  # force refresh
