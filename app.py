@@ -1,41 +1,34 @@
 import os
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from openai import OpenAI
-import logging
 
 app = FastAPI()
 
-# Initialize OpenAI client (no proxies, matches openai==1.25.1+)
+# Safe, modern client initialization
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-class ProductRequest(BaseModel):
-    product_name: str
-    mpn: str
-
 @app.get("/")
-def root():
-    return {"status": "ok"}
+async def root():
+    return {"message": "Verifier backend is live."}
 
 @app.post("/check_price")
-async def check_price(request: ProductRequest):
+async def check_price(request: Request):
     try:
-        prompt = (
-            f"Find current pricing and availability for {request.product_name} "
-            f"with MPN {request.mpn}. Summarize the results in bullet points."
-        )
+        payload = await request.json()
+        product_name = payload.get("product_name")
+        mpn = payload.get("mpn")
 
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful product analyst."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.4
-        )
-
-        return {"response": response.choices[0].message.content.strip()}
+        # Just confirming payload received — actual lookup logic goes here
+        return {
+            "status": "success",
+            "product_name": product_name,
+            "mpn": mpn,
+            "note": "This is a placeholder response. Price logic not implemented in this file."
+        }
 
     except Exception as e:
-        logging.exception("Error occurred in /check_price")
-        return {"error": str(e)}
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(e)}
+        )
