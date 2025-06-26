@@ -1,3 +1,5 @@
+print("🚨 Running latest app.py version on Render")
+
 import os
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
