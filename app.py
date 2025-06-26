@@ -1,43 +1,46 @@
-import os
-import openai
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
-
-# Initialize OpenAI client with key from Render environment
-client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+from openai import OpenAI
+import os
 
 app = FastAPI()
 
-class ProductInfo(BaseModel):
+# Use Render environment variable (set in Render dashboard)
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+# Define request body schema
+class PriceCheckRequest(BaseModel):
     product_name: str
     mpn: str
 
 @app.get("/")
-def read_root():
+def root():
     return {"status": "ok"}
 
 @app.post("/check_price")
-def check_price(info: ProductInfo):
+async def check_price(request: PriceCheckRequest):
     try:
-        prompt = f"""
-You are a product research assistant. Find current pricing information for this item:
-Product Name: {info.product_name}
-MPN: {info.mpn}
-
-Return only the most relevant details from B&H, Adorama, eBay (sold and active listings), and MPB.
-Structure the results clearly.
-"""
-
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-3.5-turbo",  # GPT-4 can be re-enabled if account supports it
             messages=[
-                {"role": "system", "content": "You are a helpful product pricing assistant."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a pricing analyst assistant. Given a product name and MPN, "
+                        "return a JSON object with suggested retail price and resale price range based on current market data."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": f"Product: {request.product_name}\nMPN: {request.mpn}"
+                }
             ],
-            temperature=0.3
+            temperature=0.3,
+            timeout=30
         )
 
-        return {"results": response.choices[0].message.content}
+        reply = response.choices[0].message.content.strip()
+        return {"result": reply}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
