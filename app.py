@@ -2,11 +2,9 @@ import os
 import openai
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from dotenv import load_dotenv
 
-load_dotenv()  # Loads OPENAI_API_KEY from .env
-
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize OpenAI client with key from Render environment
+client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 app = FastAPI()
 
