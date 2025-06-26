@@ -1,46 +1,36 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from openai import OpenAI
 import os
+import openai
 
 app = FastAPI()
 
-# Use Render environment variable (set in Render dashboard)
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+# Use environment variable directly
+openai.api_key = os.environ["OPENAI_API_KEY"]
 
-# Define request body schema
-class PriceCheckRequest(BaseModel):
+class ProductRequest(BaseModel):
     product_name: str
     mpn: str
 
 @app.get("/")
-def root():
+def health_check():
     return {"status": "ok"}
 
 @app.post("/check_price")
-async def check_price(request: PriceCheckRequest):
+async def check_price(request: ProductRequest):
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # GPT-4 can be re-enabled if account supports it
+        query = f"What is the average used and new price for a {request.product_name} with MPN {request.mpn}?"
+
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a pricing analyst assistant. Given a product name and MPN, "
-                        "return a JSON object with suggested retail price and resale price range based on current market data."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": f"Product: {request.product_name}\nMPN: {request.mpn}"
-                }
-            ],
-            temperature=0.3,
-            timeout=30
+                {"role": "system", "content": "You are a helpful product price researcher."},
+                {"role": "user", "content": query}
+            ]
         )
 
-        reply = response.choices[0].message.content.strip()
-        return {"result": reply}
+        result = response.choices[0].message.content.strip()
+        return {"response": result}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
