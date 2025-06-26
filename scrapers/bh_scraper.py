@@ -1,5 +1,3 @@
-# scrapers/bh_scraper.py
-
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -9,26 +7,24 @@ HEADERS = {
                   "(KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
 }
 
-def check_bh(product_name: str, mpn: str) -> dict:
-    print(f"[DEBUG] Received product_name: {product_name}, mpn: {mpn}")
+def check_bh(product_name, mpn):
     search_url = f"https://www.bhphotovideo.com/c/search?q={mpn}&sts=ma"
-
     try:
         response = requests.get(search_url, headers=HEADERS, timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
 
         product_blocks = soup.select("div.resultItem") or soup.select("div#productListing div.item")
+        best_match = None
 
-        best_match_url = None
         for block in product_blocks:
             href_tag = block.find("a", href=True)
             text = block.get_text().lower()
 
             if href_tag and (mpn.lower() in text or product_name.lower() in text):
-                best_match_url = "https://www.bhphotovideo.com" + href_tag["href"]
+                best_match = "https://www.bhphotovideo.com" + href_tag["href"]
                 break
 
-        if not best_match_url:
+        if not best_match:
             return {
                 "retailer": "B&H",
                 "status": "Not Found",
@@ -38,7 +34,7 @@ def check_bh(product_name: str, mpn: str) -> dict:
                 "note": "No matching product block found — manual check recommended."
             }
 
-        prod_response = requests.get(best_match_url, headers=HEADERS, timeout=10)
+        prod_response = requests.get(best_match, headers=HEADERS, timeout=10)
         prod_soup = BeautifulSoup(prod_response.text, "html.parser")
 
         full_text = prod_soup.get_text().lower()
@@ -50,7 +46,7 @@ def check_bh(product_name: str, mpn: str) -> dict:
                 "status": "Mismatch",
                 "product_name": product_name,
                 "mpn": mpn,
-                "url": best_match_url,
+                "url": best_match,
                 "note": "Product page reached but MPN not confirmed — manual validation advised."
             }
 
@@ -66,7 +62,7 @@ def check_bh(product_name: str, mpn: str) -> dict:
             "status": "Found",
             "product_name": product_name,
             "mpn": mpn,
-            "url": best_match_url,
+            "url": best_match,
             "price": price,
             "stock": stock_status,
             "note": "Match found via product page"
