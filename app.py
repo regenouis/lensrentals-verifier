@@ -5,12 +5,12 @@ from openai import OpenAI
 
 app = FastAPI()
 
-# Define request body model
+# Request body model
 class PriceRequest(BaseModel):
     product_name: str
     mpn: str
 
-# Initialize OpenAI client
+# OpenAI client
 client = OpenAI()
 
 @app.get("/")
