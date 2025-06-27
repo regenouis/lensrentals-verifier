@@ -1,12 +1,11 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-import openai
-import os
+from openai import OpenAI
 
 app = FastAPI()
 
-# Legacy client initialization compatible with openai==0.28.1
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Initialize modern OpenAI client
+client = OpenAI()
 
 @app.get("/")
 async def root():
@@ -19,13 +18,27 @@ async def check_price(request: Request):
         product_name = payload.get("product_name")
         mpn = payload.get("mpn")
 
-        # Just confirming payload received — actual lookup logic goes here
-        return {
-            "status": "success",
-            "product_name": product_name,
-            "mpn": mpn,
-            "note": "This is a placeholder response. Price logic not implemented in this file."
-        }
+        prompt = (
+            f"You are a pricing analyst. Search B&H, Adorama, MPB, and eBay "
+            f"for the product '{product_name}' with MPN '{mpn}'. "
+            f"Provide a JSON object listing each site with URL, new price, used price, and stock status."
+        )
+
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        answer = response.choices[0].message.content
+
+        return JSONResponse(
+            content={
+                "ai_response": answer
+            }
+        )
 
     except Exception as e:
         return JSONResponse(
