@@ -4,7 +4,7 @@ from openai import OpenAI
 
 app = FastAPI()
 
-# Initialize modern OpenAI client
+# Safe client initialization for OpenAI 1.x
 client = OpenAI()
 
 @app.get("/")
@@ -18,27 +18,34 @@ async def check_price(request: Request):
         product_name = payload.get("product_name")
         mpn = payload.get("mpn")
 
-        prompt = (
-            f"You are a pricing analyst. Search B&H, Adorama, MPB, and eBay "
-            f"for the product '{product_name}' with MPN '{mpn}'. "
-            f"Provide a JSON object listing each site with URL, new price, used price, and stock status."
-        )
-
-        response = client.chat.completions.create(
-            model="gpt-4",
+        # This is placeholder AI logic - adjust prompt as needed
+        completion = client.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ]
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful assistant that retrieves product pricing information."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Please look up pricing for the product '{product_name}' "
+                        f"with MPN '{mpn}'. Return any known pricing data."
+                    ),
+                },
+            ],
         )
 
-        answer = response.choices[0].message.content
+        ai_response = completion.choices[0].message.content
 
-        return JSONResponse(
-            content={
-                "ai_response": answer
-            }
-        )
+        return {
+            "status": "success",
+            "product_name": product_name,
+            "mpn": mpn,
+            "ai_response": ai_response,
+        }
 
     except Exception as e:
         return JSONResponse(
