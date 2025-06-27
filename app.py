@@ -1,11 +1,12 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from openai import OpenAI
+import openai
+import os
 
 app = FastAPI()
 
-# Safe, modern client initialization WITHOUT any arguments
-client = OpenAI()
+# Legacy client initialization compatible with openai==0.28.1
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.get("/")
 async def root():
