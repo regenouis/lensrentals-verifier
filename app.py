@@ -1,14 +1,11 @@
-print("🚨 Running latest app.py version on Render")
-
-import os
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from openai import OpenAI
 
 app = FastAPI()
 
-# Safe, modern client initialization
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Safe, modern client initialization WITHOUT any arguments
+client = OpenAI()
 
 @app.get("/")
 async def root():
