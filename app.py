@@ -1,63 +1,62 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from openai import OpenAI
+import os
 
 app = FastAPI()
 
-# Request body model
+# Initialize OpenAI client (free-tier compatible)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Request schema for validation
 class PriceRequest(BaseModel):
     product_name: str
     mpn: str
 
-# OpenAI client
-client = OpenAI()
-
 @app.get("/")
 async def root():
-    return {"message": "Verifier backend is live."}
+    return {"message": "AI Pricing Verifier backend is live."}
 
 @app.post("/check_price")
 async def check_price(request: PriceRequest):
     try:
-        prompt_text = (
-            f"You are an expert in camera gear pricing. "
-            f"Estimate the current average used price in USD for the product '{request.product_name}' with MPN '{request.mpn}'. "
-            f"Follow this process step by step:\n"
-            f"1. Search your training data for pricing trends and typical ranges.\n"
-            f"2. Check approximate pricing from reputable sources such as B&H, Adorama, Amazon, and MPB.\n"
-            f"3. If you are unsure or cannot find data, clearly say 'unknown'.\n"
-            f"4. Respond ONLY with a valid JSON object in this format:\n"
-            f'{{"price_estimate_usd": "XXX.XX", "confidence": "high/medium/low"}}\n'
-            f"Never include extra commentary or disclaimers."
+        # Build a strong, clear prompt
+        prompt = (
+            f"You are a professional photography equipment pricing analyst.\n\n"
+            f"Given the product below, find the most likely current retail price range in USD.\n\n"
+            f"Requirements:\n"
+            f"- Cite reputable sources you draw from (even if approximate)\n"
+            f"- Rate your confidence (high, medium, low)\n"
+            f"- Never hallucinate or invent data. If unsure, say so clearly.\n\n"
+            f"Product Name: {request.product_name}\n"
+            f"MPN: {request.mpn}\n\n"
+            f"Respond in JSON with keys: price_estimate, confidence, sources (array), note.\n"
         )
 
+        # Create the completion
         completion = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",  # Or "gpt-3.5-turbo" for cheaper cost
             messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a precise pricing analyst for camera gear. "
-                        "Always follow instructions carefully and never make up data."
-                    )
-                },
-                {"role": "user", "content": prompt_text}
+                {"role": "system", "content": "You are a pricing assistant."},
+                {"role": "user", "content": prompt}
             ],
-            temperature=0
+            temperature=0  # Keep deterministic
         )
 
-        ai_response = completion.choices[0].message.content.strip()
+        # Parse the text response
+        raw_response = completion.choices[0].message.content
 
-        return {
-            "status": "success",
-            "product_name": request.product_name,
-            "mpn": request.mpn,
-            "ai_raw_response": ai_response
-        }
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "success",
+                "raw_response": raw_response
+            }
+        )
 
     except Exception as e:
         return JSONResponse(
             status_code=500,
-            content={"detail": str(e)}
+            content={"status": "error", "detail": str(e)}
         )
