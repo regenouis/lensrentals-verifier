@@ -1,10 +1,16 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from openai import OpenAI
 
 app = FastAPI()
 
-# Initialize OpenAI client (no arguments if OPENAI_API_KEY is in environment)
+# Define request body model
+class PriceRequest(BaseModel):
+    product_name: str
+    mpn: str
+
+# Initialize OpenAI client
 client = OpenAI()
 
 @app.get("/")
@@ -12,36 +18,42 @@ async def root():
     return {"message": "Verifier backend is live."}
 
 @app.post("/check_price")
-async def check_price(request: Request):
+async def check_price(request: PriceRequest):
     try:
-        payload = await request.json()
-        product_name = payload.get("product_name")
-        mpn = payload.get("mpn")
-
-        # Construct prompt for AI
         prompt_text = (
-            f"Find the average current price online for the product '{product_name}' "
-            f"with MPN '{mpn}'. Return ONLY the price in USD, no extra text."
+            f"You are an expert in camera gear pricing. "
+            f"Estimate the current average used price in USD for the product '{request.product_name}' with MPN '{request.mpn}'. "
+            f"Follow this process step by step:\n"
+            f"1. Search your training data for pricing trends and typical ranges.\n"
+            f"2. Check approximate pricing from reputable sources such as B&H, Adorama, Amazon, and MPB.\n"
+            f"3. If you are unsure or cannot find data, clearly say 'unknown'.\n"
+            f"4. Respond ONLY with a valid JSON object in this format:\n"
+            f'{{"price_estimate_usd": "XXX.XX", "confidence": "high/medium/low"}}\n'
+            f"Never include extra commentary or disclaimers."
         )
 
-        # Call OpenAI completion
         completion = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You provide pricing data in USD."},
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a precise pricing analyst for camera gear. "
+                        "Always follow instructions carefully and never make up data."
+                    )
+                },
                 {"role": "user", "content": prompt_text}
             ],
             temperature=0
         )
 
-        # Extract text response
         ai_response = completion.choices[0].message.content.strip()
 
         return {
             "status": "success",
-            "product_name": product_name,
-            "mpn": mpn,
-            "price_estimate_usd": ai_response
+            "product_name": request.product_name,
+            "mpn": request.mpn,
+            "ai_raw_response": ai_response
         }
 
     except Exception as e:
